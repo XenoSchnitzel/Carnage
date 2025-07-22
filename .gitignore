@@ -1,0 +1,42 @@
+# Unreal Engine
+Binaries/
+DerivedDataCache/
+Intermediate/
+Saved/
+.vscode/
+.vs/
+*.VC.db
+*.VC.opendb
+
+# User-specific
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# Log files
+*.log
+*.tlog
+*.pdb
+*.obj
+
+# Build files
+*.sln
+*.opensdf
+*.sdf
+*.suo
+*.cache
+
+# Compiled assets
+*.uasset
+*.umap
+
+# Unreal Launcher & Editor Logs
+*.log
+
+# Temporäre lokale Backups (optional)
+Backup*/
