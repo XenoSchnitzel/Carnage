@@ -25,6 +25,9 @@ public:
     UPROPERTY(EditAnywhere, Category = "Resource")
     int32 TotalResources = 1000;
 
+
+    //This distributes resources, Less, when beeing away from the center, more when beeing close to the center
+    // The extrem value 0.0f means, that resources at the border have only 10% of its original share of 100 and the ones in the center get double the share 200
     UPROPERTY(EditAnywhere, Category = "Resource", meta=(ClampMin=0.0, ClampMax=1.0))
     float DistributionUniformity = 1.0f;
 
@@ -45,5 +48,5 @@ public:
 
 private:
     TArray<FVector> GeneratePointsInPolygon(int32 Count);
-    void SpawnResourceAt(const FVector& Location, FRandomStream& Stream);
+    AResourceNode* SpawnResourceAt(const FVector& Location, FRandomStream& Stream);
 };

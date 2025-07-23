@@ -44,13 +44,37 @@ void AResourceAreaVolume::GenerateResources()
     const int32 Count = FMath::Max(1, TotalResources / 100);
 
     TArray<FVector> Points = GeneratePointsInPolygon(Count);
+    // Mittelpunkt und maximalen Abstand berechnen
+    FBox2D Bounds(EForceInit::ForceInit);
+
     for (const FVector& P : Points)
     {
-        SpawnResourceAt(P, Stream);
+        Bounds += FVector2D(P.X, P.Y);
+    }
+    const FVector2D Center = Bounds.GetCenter();
+    const float MaxDist = Bounds.GetExtent().Size();
+
+    for (const FVector& P : Points)
+    {
+        const float Distance = FVector2D::Distance(FVector2D(P.X, P.Y), Center);
+        const float Normalized = FMath::Clamp(Distance / MaxDist, 0.f, 1.f);
+
+        const float MinFactor = 0.1f;  // Rand
+        const float MaxFactor = 2.0f;  // Zentrum
+        const float NonUniformFactor = FMath::Lerp(MaxFactor, MinFactor, Normalized);
+        const float FinalFactor = FMath::Lerp(1.0f, NonUniformFactor, 1.0f - DistributionUniformity);
+
+        float AdjustedAmount = 100.f * FinalFactor;
+
+        AResourceNode* Node = SpawnResourceAt(P, Stream);
+        if (Node)
+        {
+            Node->ResourceAmount = AdjustedAmount;
+        }
     }
 }
 
-void AResourceAreaVolume::SpawnResourceAt(const FVector& Location, FRandomStream& Stream)
+AResourceNode* AResourceAreaVolume::SpawnResourceAt(const FVector& Location, FRandomStream& Stream)
 {
     FActorSpawnParameters Params;
     Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
@@ -68,6 +92,8 @@ void AResourceAreaVolume::SpawnResourceAt(const FVector& Location, FRandomStream
         Node->SetMesh(ResourceMeshes[Index]);
         Node->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
     }
+
+    return Node;
 }
 
 FVector RandomPointInTriangle(const FVector2D& A, const FVector2D& B, const FVector2D& C, FRandomStream& Stream)
