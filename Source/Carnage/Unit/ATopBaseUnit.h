@@ -4,6 +4,10 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "../GameState/enum/EFaction.h"
+#include "../GameState/enum/EAlliance.h"
+
+
 #include "ATopBaseUnit.generated.h"
 
 //TODO: rename ATopBaseUnit to BaseUnit once full c++ migration has happened.
@@ -14,4 +18,10 @@ class ATopBaseUnit : public ACharacter
 
 public:
 
+	UPROPERTY(BlueprintReadWrite, EditAnywhere)
+		EFaction factionId;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere)
+		EAlliance allianceId;
+	
 };

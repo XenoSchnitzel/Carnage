@@ -20,7 +20,7 @@ protected:
     // R E S O U R C E S
 
     // Resource amount (e.g. energy, ore)
-    UPROPERTY(BlueprintReadWrite)
+    UPROPERTY(BlueprintReadWrite, EditAnywhere)
     int32 Resources = 0;
 
     // U N I T S
@@ -29,19 +29,24 @@ protected:
     UPROPERTY(BlueprintReadWrite, EditAnywhere)
         TArray<AActor*> UnitList;
 
+    // B U I L D I N G S
+
+    UPROPERTY(BlueprintReadWrite, EditAnywhere)
+    AActor* MainBaseBuilding;
+
     // T E C H N O L O G Y
 
     // Set of unlocked technologies
     UPROPERTY(BlueprintReadWrite, EditAnywhere)
         TSet<FName> UnlockedTechnologies;
 
+    // P R O D U C T I O N
 
 
-    UPROPERTY(BlueprintReadWrite)
+    UPROPERTY(BlueprintReadWrite, EditAnywhere)
         TArray<FProductionOrder> ProductionQueue;
 
-    UPROPERTY(BlueprintReadWrite)
-        AActor* MainBaseBuilding;
+
 
 public:
 
