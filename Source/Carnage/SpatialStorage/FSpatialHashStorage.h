@@ -2,7 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "IUnitStorageStrategy.h"
-#include "ETeam.h"
+#include "../GameState/enum/EHostility.h"
 #include "GameFramework/Actor.h"
 #include <unordered_map>
 #include <unordered_set>
@@ -13,9 +13,9 @@ public:
     explicit FSpatialHashStorage(float InCellSize = 1000.0f);
     virtual ~FSpatialHashStorage() override = default;
 
-    virtual void AddUnit(AActor* Unit, ETeam Team) override;
+    virtual void AddUnit(AActor* Unit, EHostility Team) override;
     virtual void RemoveUnit(AActor* Unit) override;
-    virtual AActor* FindNearestUnit(const FVector2D& Position, ETeam EnemyTeam) const override;
+    virtual AActor* FindNearestUnit(const FVector2D& Position, EHostility EnemyTeam) const override;
     virtual void UpdateUnit(AActor* Unit, const FVector2D& NewPosition) override;
 
 private:
@@ -49,7 +49,7 @@ private:
 
     // Tracking Maps
     TMap<AActor*, FInt2DKey> UnitToCellMap;
-    TMap<AActor*, ETeam> UnitToTeamMap;
+    TMap<AActor*, EHostility> UnitToTeamMap;
     TMap<AActor*, FVector2D> UnitToPositionMap;
 
     FInt2DKey GetCellForPosition(const FVector2D& Position) const;
@@ -60,7 +60,7 @@ private:
 //
 //#include "CoreMinimal.h"
 //#include "IUnitStorageStrategy.h"
-//#include "ETeam.h"
+//#include "EHostility.h"
 //
 //class FSpatialHashStorage : public IUnitStorageStrategy
 //{
@@ -68,9 +68,9 @@ private:
 //    FSpatialHashStorage(float InCellSize = 1000.0f);
 //    virtual ~FSpatialHashStorage() = default;
 //
-//    virtual void AddUnit(AActor* Unit, ETeam Team) override;
+//    virtual void AddUnit(AActor* Unit, EHostility Team) override;
 //    virtual void RemoveUnit(AActor* Unit) override;
-//    virtual AActor* FindNearestUnit(const FVector2D& Position, ETeam EnemyTeam) const override;
+//    virtual AActor* FindNearestUnit(const FVector2D& Position, EHostility EnemyTeam) const override;
 //    virtual void UpdateUnit(AActor* Unit, const FVector2D& NewPosition) override;
 //
 //private:
@@ -98,7 +98,7 @@ private:
 //    TMap<FInt2DKey, TSet<AActor*>> TeamGrids[2];
 //
 //    TMap<AActor*, FInt2DKey> UnitToCellMap;
-//    TMap<AActor*, ETeam> UnitToTeamMap;
+//    TMap<AActor*, EHostility> UnitToTeamMap;
 //    TMap<AActor*, FVector2D> UnitToPositionMap;
 //
 //    FInt2DKey GetCellForPosition(const FVector2D& Position) const;

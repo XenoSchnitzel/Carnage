@@ -1,7 +1,7 @@
 #include "RTSUnitManagerComponent.h"
 #include "FSpatialHashStorage.h"
 #include "FQuadTreeStorage.h"
-#include "ETeam.h"
+#include "../GameState/enum/EHostility.h"
 
 URTSUnitManagerComponent::URTSUnitManagerComponent()
 {
@@ -25,17 +25,17 @@ void URTSUnitManagerComponent::BeginPlay()
     DeferredRegistrations.Empty();
 }
 
-void URTSUnitManagerComponent::RegisterUnit(AActor* Unit, ETeam Team)
+void URTSUnitManagerComponent::RegisterUnit(AActor* Unit, EHostility Hostility)
 {
     if (!bIsReady)
     {
-        DeferredRegistrations.Add(TPair<AActor*, ETeam>(Unit, Team));
+        DeferredRegistrations.Add(TPair<AActor*, EHostility>(Unit, Hostility));
     }
     else
     {
         if (StorageStrategy)
         {
-            StorageStrategy->AddUnit(Unit, Team);
+            StorageStrategy->AddUnit(Unit, Hostility);
         }
     }
 }
@@ -48,12 +48,12 @@ void URTSUnitManagerComponent::UnregisterUnit(AActor* Unit)
     }
 }
 
-AActor* URTSUnitManagerComponent::GetClosestEnemyUnit(const FVector2D& Position, ETeam MyTeam) const
+AActor* URTSUnitManagerComponent::GetClosestEnemyUnit(const FVector2D& Position, EHostility Hostility) const
 {
     if (StorageStrategy)
     {
-        ETeam EnemyTeam = (MyTeam == ETeam::Friendly) ? ETeam::Enemy : ETeam::Friendly;
-        return StorageStrategy->FindNearestUnit(Position, EnemyTeam);
+        EHostility MyHostility = (Hostility == EHostility::Friendly) ? EHostility::Enemy : EHostility::Friendly;
+        return StorageStrategy->FindNearestUnit(Position, MyHostility);
     }
 
     return nullptr;

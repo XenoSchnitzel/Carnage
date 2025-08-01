@@ -2,7 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "IUnitStorageStrategy.h"
-#include "ETeam.h"
+#include "../GameState/enum/EHostility.h"
 #include "GameFramework/Actor.h"
 
 class FQuadTreeStorage : public IUnitStorageStrategy
@@ -11,9 +11,9 @@ public:
     FQuadTreeStorage(const FBox2D& InBounds, int32 InMaxDepth = 5, int32 InMaxObjectsPerNode = 10);
     virtual ~FQuadTreeStorage() override = default;
 
-    virtual void AddUnit(AActor* Unit, ETeam Team) override;
+    virtual void AddUnit(AActor* Unit, EHostility Team) override;
     virtual void RemoveUnit(AActor* Unit) override;
-    virtual AActor* FindNearestUnit(const FVector2D& Position, ETeam EnemyTeam) const override;
+    virtual AActor* FindNearestUnit(const FVector2D& Position, EHostility EnemyTeam) const override;
     virtual void UpdateUnit(AActor* Unit, const FVector2D& NewPosition) override;
 
 private:
@@ -38,19 +38,19 @@ private:
     int32 MaxDepth;
     int32 MaxObjectsPerNode;
 
-    TMap<AActor*, ETeam> UnitToTeamMap;
+    TMap<AActor*, EHostility> UnitToTeamMap;
     TMap<AActor*, FVector2D> UnitToPositionMap;
 
-    void InsertUnit(AActor* Unit, ETeam Team);
-    void RemoveUnitFromTree(AActor* Unit, ETeam Team);
-    AActor* FindNearestInTeam(const FVector2D& Position, ETeam Team) const;
+    void InsertUnit(AActor* Unit, EHostility Team);
+    void RemoveUnitFromTree(AActor* Unit, EHostility Team);
+    AActor* FindNearestInTeam(const FVector2D& Position, EHostility Team) const;
 };
 
 //#pragma once
 //
 //#include "CoreMinimal.h"
 //#include "IUnitStorageStrategy.h"
-//#include "ETeam.h"
+//#include "EHostility.h"
 //#include "GameFramework/Actor.h"
 //
 //class FQuadTreeStorage : public IUnitStorageStrategy
@@ -59,9 +59,9 @@ private:
 //    FQuadTreeStorage(const FBox2D& InBounds, int32 InMaxDepth = 5, int32 InMaxObjectsPerNode = 10);
 //    virtual ~FQuadTreeStorage() = default;
 //
-//    virtual void AddUnit(AActor* Unit, ETeam Team) override;
+//    virtual void AddUnit(AActor* Unit, EHostility Team) override;
 //    virtual void RemoveUnit(AActor* Unit) override;
-//    virtual AActor* FindNearestUnit(const FVector2D& Position, ETeam EnemyTeam) const override;
+//    virtual AActor* FindNearestUnit(const FVector2D& Position, EHostility EnemyTeam) const override;
 //    virtual void UpdateUnit(AActor* Unit, const FVector2D& NewPosition) override;
 //
 //private:
@@ -88,17 +88,17 @@ private:
 //    int32 MaxDepth;
 //    int32 MaxObjectsPerNode;
 //
-//    TMap<AActor*, ETeam> UnitToTeamMap;
+//    TMap<AActor*, EHostility> UnitToTeamMap;
 //    TMap<AActor*, FVector2D> UnitToPositionMap;
 //
 //    // Hilfsfunktion zum Einfügen
-//    void InsertUnit(AActor* Unit, ETeam Team);
+//    void InsertUnit(AActor* Unit, EHostility Team);
 //
 //    // Hilfsfunktion zum Entfernen
-//    void RemoveUnitFromTree(AActor* Unit, ETeam Team);
+//    void RemoveUnitFromTree(AActor* Unit, EHostility Team);
 //
 //    // Hilfsfunktion zum Finden
-//    AActor* FindNearestInTeam(const FVector2D& Position, ETeam Team) const;
+//    AActor* FindNearestInTeam(const FVector2D& Position, EHostility Team) const;
 //};
 //
 //

@@ -72,6 +72,20 @@ void UFactionState::UnlockTechnology(FName TechID)
     UnlockedTechnologies.Add(TechID);
 }
 
+void UFactionState::RegisterUnit(AActor* unit)
+{
+    if (unit) {
+        this->UnitList.Add(unit);
+    }
+}
+
+void UFactionState::UnregisterUnit(AActor* unit)
+{
+    if (unit) {
+        this->UnitList.Remove(unit);
+    }
+}
+
 void UFactionState::RegisterMainBaseBuilding(AActor* mainBase) {
     MainBaseBuilding = mainBase;
 }

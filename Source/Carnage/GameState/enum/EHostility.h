@@ -1,9 +1,9 @@
 #pragma once
 
-#include "ETeam.generated.h"
+#include "EHostility.generated.h"
 
 UENUM(BlueprintType)
-enum class ETeam : uint8
+enum class EHostility : uint8
 {
     Friendly UMETA(DisplayName = "Friendly"),
     Enemy    UMETA(DisplayName = "Enemy")

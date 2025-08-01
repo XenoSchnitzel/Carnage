@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 
+//TODO: Rename to EUnitMakroState once BaseUnit has been transfered to C++
 UENUM(BlueprintType)
 enum UnitMakroState
 {

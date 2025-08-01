@@ -17,17 +17,25 @@ class CARNAGE_API UFactionState : public UObject
 
 protected:
 
+    // R E S O U R C E S
+
+    // Resource amount (e.g. energy, ore)
+    UPROPERTY(BlueprintReadWrite)
+    int32 Resources = 0;
+
+    // U N I T S
+
     // List of owned units
     UPROPERTY(BlueprintReadWrite, EditAnywhere)
-        TArray<AActor*> OwnedUnits;
+        TArray<AActor*> UnitList;
+
+    // T E C H N O L O G Y
 
     // Set of unlocked technologies
     UPROPERTY(BlueprintReadWrite, EditAnywhere)
         TSet<FName> UnlockedTechnologies;
 
-    // Resource amount (e.g. energy, ore)
-    UPROPERTY(BlueprintReadWrite)
-        int32 Resources = 0;
+
 
     UPROPERTY(BlueprintReadWrite)
         TArray<FProductionOrder> ProductionQueue;
@@ -36,6 +44,8 @@ protected:
         AActor* MainBaseBuilding;
 
 public:
+
+    // R E S O U R C E S
 
     UFUNCTION(BlueprintCallable)
         int32 GetResources() const { return Resources; }
@@ -54,17 +64,32 @@ public:
             return false;
         }
 
+
+    // U N I T S
+
+    UFUNCTION(BlueprintCallable)
+        void RegisterUnit(AActor* unit);
+
+    UFUNCTION(BlueprintCallable)
+        void UnregisterUnit(AActor* unit);
+
+    // B U I L D I N G S
+
     UFUNCTION(BlueprintCallable)
         void RegisterMainBaseBuilding(AActor* mainBase);
     
     UFUNCTION(BlueprintCallable)
         AActor* GetMainBaseBuilding() const { return MainBaseBuilding; }
 
+    // T E C H N O L O G Y
+
     UFUNCTION(BlueprintCallable)
         bool HasTechnology(FName TechID) const;
 
     UFUNCTION(BlueprintCallable)
         void UnlockTechnology(FName TechID);
+
+    // P R O D U C T I O N
 
     UFUNCTION(BlueprintCallable)
         void EnqueueProduction(ECarnageUnitType UnitType);

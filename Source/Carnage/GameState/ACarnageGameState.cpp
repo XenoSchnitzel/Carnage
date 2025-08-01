@@ -3,6 +3,7 @@
 #include "../GameMode/ACarnageGameMode.h"
 #include "../GameMode/EReadyComponent.h"
 #include "UFactionState.h"
+#include "Net/UnrealNetwork.h"
 
 int32 ACarnageGameState::NextUnitId = 0;
 
@@ -29,8 +30,6 @@ int32 ACarnageGameState::GetFactionCount() const
 void ACarnageGameState::BeginPlay()
 {    
     Super::BeginPlay();
-
-   
 
     if (Factions.Num() == 0)
     {
@@ -66,4 +65,10 @@ int32 ACarnageGameState::GetNextUnitId()
     return NextUnitId++;
 }
 
+void ACarnageGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+    Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+    DOREPLIFETIME(ACarnageGameState, myFactionId);
+}
 

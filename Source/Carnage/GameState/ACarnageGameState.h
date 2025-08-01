@@ -11,15 +11,22 @@ class CARNAGE_API ACarnageGameState : public AGameStateBase
     GENERATED_BODY()
 
 
-        static int32 NextUnitId;
+    static int32 NextUnitId;
 
 protected:
+    
+    UPROPERTY(Replicated)
+    int32 myFactionId;
+
+    virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
     // List of all factions in the game
     UPROPERTY(BlueprintReadOnly)
     TArray<UFactionState*> Factions;
 
 public:
     ACarnageGameState();
+
 
     UFUNCTION(BlueprintCallable)
         UFactionState* GetPlayerFaction() const;

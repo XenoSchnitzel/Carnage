@@ -13,7 +13,7 @@ FSpatialHashStorage::FInt2DKey FSpatialHashStorage::GetCellForPosition(const FVe
     return FInt2DKey(CellX, CellY);
 }
 
-void FSpatialHashStorage::AddUnit(AActor* Unit, ETeam Team)
+void FSpatialHashStorage::AddUnit(AActor* Unit, EHostility Team)
 {
     if (!Unit) return;
     int32 TeamIndex = static_cast<int32>(Team);
@@ -35,7 +35,7 @@ void FSpatialHashStorage::RemoveUnit(AActor* Unit)
 
     //UE_LOG(LogTemp, Warning, TEXT("RemoveUnit()"));
 
-    if (const ETeam* TeamPtr = UnitToTeamMap.Find(Unit))
+    if (const EHostility* TeamPtr = UnitToTeamMap.Find(Unit))
     {
         int32 TeamIndex = static_cast<int32>(*TeamPtr);
 
@@ -62,7 +62,7 @@ void FSpatialHashStorage::RemoveUnit(AActor* Unit)
 }
 
 
-//AActor * FSpatialHashStorage::FindNearestUnit(const FVector2D & Position, ETeam EnemyTeam) const
+//AActor * FSpatialHashStorage::FindNearestUnit(const FVector2D & Position, EHostility EnemyTeam) const
 //{
 //    int32 TeamIndex = static_cast<int32>(EnemyTeam);
 //    FInt2DKey CenterCell = GetCellForPosition(Position);
@@ -116,7 +116,7 @@ void FSpatialHashStorage::RemoveUnit(AActor* Unit)
 //    return ClosestUnit;
 //}
 
-AActor* FSpatialHashStorage::FindNearestUnit(const FVector2D& Position, ETeam EnemyTeam) const
+AActor* FSpatialHashStorage::FindNearestUnit(const FVector2D& Position, EHostility EnemyTeam) const
 {
     int32 TeamIndex = static_cast<int32>(EnemyTeam);
     FInt2DKey CenterCell = GetCellForPosition(Position);
@@ -177,7 +177,7 @@ void FSpatialHashStorage::UpdateUnit(AActor* Unit, const FVector2D& NewPosition)
     if (!(OldCell == NewCell))
     {
        // UE_LOG(LogTemp, Display, TEXT("Old Cell != New Cell(), OlDCell.X %i, OldCelly.Y %i, NewCell.X %i, NewCell.X %i"), OldCell.X, OldCell.Y, NewCell.X, NewCell.Y );
-        ETeam* Team = UnitToTeamMap.Find(Unit);
+        EHostility* Team = UnitToTeamMap.Find(Unit);
         RemoveUnit(Unit);
         if (Team)
         {

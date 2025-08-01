@@ -124,11 +124,11 @@ void FQuadTreeStorage::FQuadTreeNode::Query(const FVector2D& Position, float& Cl
 FQuadTreeStorage::FQuadTreeStorage(const FBox2D& InBounds, int32 InMaxDepth, int32 InMaxObjectsPerNode)
     : MaxDepth(InMaxDepth), MaxObjectsPerNode(InMaxObjectsPerNode)
 {
-    RootNodes[static_cast<int32>(ETeam::Friendly)] = MakeUnique<FQuadTreeNode>(InBounds, 0);
-    RootNodes[static_cast<int32>(ETeam::Enemy)] = MakeUnique<FQuadTreeNode>(InBounds, 0);
+    RootNodes[static_cast<int32>(EHostility::Friendly)] = MakeUnique<FQuadTreeNode>(InBounds, 0);
+    RootNodes[static_cast<int32>(EHostility::Enemy)] = MakeUnique<FQuadTreeNode>(InBounds, 0);
 }
 
-void FQuadTreeStorage::AddUnit(AActor* Unit, ETeam Team)
+void FQuadTreeStorage::AddUnit(AActor* Unit, EHostility Team)
 {
     if (!Unit) return;
 
@@ -146,7 +146,7 @@ void FQuadTreeStorage::RemoveUnit(AActor* Unit)
 {
     if (!Unit) return;
 
-    if (const ETeam* TeamPtr = UnitToTeamMap.Find(Unit))
+    if (const EHostility* TeamPtr = UnitToTeamMap.Find(Unit))
     {
         int32 TeamIndex = static_cast<int32>(*TeamPtr);
         FVector2D Pos = UnitToPositionMap.FindRef(Unit);
@@ -160,7 +160,7 @@ void FQuadTreeStorage::RemoveUnit(AActor* Unit)
     }
 }
 
-AActor* FQuadTreeStorage::FindNearestUnit(const FVector2D& Position, ETeam EnemyTeam) const
+AActor* FQuadTreeStorage::FindNearestUnit(const FVector2D& Position, EHostility EnemyTeam) const
 {
     int32 TeamIndex = static_cast<int32>(EnemyTeam);
     if (!RootNodes[TeamIndex]) return nullptr;
@@ -182,7 +182,7 @@ void FQuadTreeStorage::UpdateUnit(AActor* Unit, const FVector2D& NewPosition)
     // Optional Threshold zum Vermeiden unnötiger Updates (z.B. 1cm)
     if (DistSq > KINDA_SMALL_NUMBER)
     {
-        if (const ETeam* TeamPtr = UnitToTeamMap.Find(Unit))
+        if (const EHostility* TeamPtr = UnitToTeamMap.Find(Unit))
         {
             int32 TeamIndex = static_cast<int32>(*TeamPtr);
 
@@ -206,8 +206,8 @@ void FQuadTreeStorage::UpdateUnit(AActor* Unit, const FVector2D& NewPosition)
 //FQuadTreeStorage::FQuadTreeStorage(const FBox2D& InBounds, int32 InMaxDepth, int32 InMaxObjectsPerNode)
 //    : MaxDepth(InMaxDepth), MaxObjectsPerNode(InMaxObjectsPerNode)
 //{
-//    RootNodes[static_cast<int32>(ETeam::Friendly)] = MakeUnique<FQuadTreeNode>(InBounds, 0);
-//    RootNodes[static_cast<int32>(ETeam::Enemy)] = MakeUnique<FQuadTreeNode>(InBounds, 0);
+//    RootNodes[static_cast<int32>(EHostility::Friendly)] = MakeUnique<FQuadTreeNode>(InBounds, 0);
+//    RootNodes[static_cast<int32>(EHostility::Enemy)] = MakeUnique<FQuadTreeNode>(InBounds, 0);
 //}
 //
 //// --- FQuadTreeNode Implementation ---
@@ -335,7 +335,7 @@ void FQuadTreeStorage::UpdateUnit(AActor* Unit, const FVector2D& NewPosition)
 //
 //// --- FQuadTreeStorage Methoden ---
 //
-//void FQuadTreeStorage::AddUnit(AActor* Unit, ETeam Team)
+//void FQuadTreeStorage::AddUnit(AActor* Unit, EHostility Team)
 //{
 //    if (!Unit) return;
 //
@@ -352,7 +352,7 @@ void FQuadTreeStorage::UpdateUnit(AActor* Unit, const FVector2D& NewPosition)
 //{
 //    if (!Unit) return;
 //
-//    if (const ETeam* TeamPtr = UnitToTeamMap.Find(Unit))
+//    if (const EHostility* TeamPtr = UnitToTeamMap.Find(Unit))
 //    {
 //        int32 TeamIndex = static_cast<int32>(*TeamPtr);
 //        FVector2D Pos(Unit->GetActorLocation().X, Unit->GetActorLocation().Y);
@@ -365,7 +365,7 @@ void FQuadTreeStorage::UpdateUnit(AActor* Unit, const FVector2D& NewPosition)
 //    }
 //}
 //
-//AActor* FQuadTreeStorage::FindNearestUnit(const FVector2D& Position, ETeam EnemyTeam) const
+//AActor* FQuadTreeStorage::FindNearestUnit(const FVector2D& Position, EHostility EnemyTeam) const
 //{
 //    int32 TeamIndex = static_cast<int32>(EnemyTeam);
 //    if (!RootNodes[TeamIndex])
@@ -389,7 +389,7 @@ void FQuadTreeStorage::UpdateUnit(AActor* Unit, const FVector2D& NewPosition)
 //    // Optional Threshold zum Vermeiden unnötiger Updates (z.B. 1cm)
 //    if (DistSq > KINDA_SMALL_NUMBER)
 //    {
-//        if (const ETeam* TeamPtr = UnitToTeamMap.Find(Unit))
+//        if (const EHostility* TeamPtr = UnitToTeamMap.Find(Unit))
 //        {
 //            int32 TeamIndex = static_cast<int32>(*TeamPtr);
 //

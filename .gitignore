@@ -35,8 +35,11 @@ Thumbs.db
 *.uasset
 *.umap
 
+# Ausnahme fÃ¼r Blueprints-Ordner
+!Content/TopDown/Blueprints/**/*.uasset
+
 # Unreal Launcher & Editor Logs
 *.log
 
-# Temporäre lokale Backups (optional)
+# Temporï¿½re lokale Backups (optional)
 Backup*/
