@@ -4,17 +4,6 @@
 #include "Engine/GameInstance.h"
 #include "ACarnageGameState.h"
 
-//UFactionState::UFactionState()
-//{
-//    this->eAllianceId = EAlliance::Alliance_None;
-//    this->eFactionId = EFaction::Faction_None;
-//}
-//
-//UFactionState::UFactionState(EAlliance newAlliance, EFaction newFaction)
-//{
-//    this->eAllianceId = newAlliance;
-//    this->eFactionId = newFaction;
-//}
 
 EAlliance UFactionState::GetAllianceId() const {
     return this->eAllianceId;
