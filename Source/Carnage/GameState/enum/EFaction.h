@@ -5,6 +5,7 @@
 UENUM(BlueprintType)
 enum class EFaction : uint8
 {
+	Faction_None UMETA(DisplayName = "Faction_None"),
 	Faction_1 UMETA(DisplayName = "Faction_1"),
 	Faction_2 UMETA(DisplayName = "Faction_2"),
 	Faction_3 UMETA(DisplayName = "Faction_3"),

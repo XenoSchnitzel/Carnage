@@ -3,6 +3,8 @@
 #include "CoreMinimal.h"
 #include "UObject/NoExportTypes.h"
 #include "ProductionOrder.h"
+#include "enum/EFaction.h"
+#include "enum/EAlliance.h"
 #include "UFactionState.generated.h"
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FNewProductionOrderQueued, const FProductionOrder&, CurrentOrder);
@@ -16,6 +18,12 @@ class CARNAGE_API UFactionState : public UObject
     GENERATED_BODY()
 
 protected:
+
+    UPROPERTY(BlueprintReadWrite, EditAnywhere)
+    EFaction eFactionId;
+
+    UPROPERTY(BlueprintReadWrite, EditAnywhere)
+    EAlliance eAllianceId;
 
     // R E S O U R C E S
 
@@ -49,6 +57,13 @@ protected:
 
 
 public:
+
+
+    EAlliance GetAllianceId() const;
+    void SetAllianceId(EAlliance newAllianceId);
+    EFaction GetFactionId() const;
+    void SetFactionId(EFaction newFactionId);
+    
 
     // R E S O U R C E S
 

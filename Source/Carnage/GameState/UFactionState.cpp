@@ -4,6 +4,34 @@
 #include "Engine/GameInstance.h"
 #include "ACarnageGameState.h"
 
+//UFactionState::UFactionState()
+//{
+//    this->eAllianceId = EAlliance::Alliance_None;
+//    this->eFactionId = EFaction::Faction_None;
+//}
+//
+//UFactionState::UFactionState(EAlliance newAlliance, EFaction newFaction)
+//{
+//    this->eAllianceId = newAlliance;
+//    this->eFactionId = newFaction;
+//}
+
+EAlliance UFactionState::GetAllianceId() const {
+    return this->eAllianceId;
+}
+
+void UFactionState::SetAllianceId(EAlliance newAllianceId) {
+    this->eAllianceId = newAllianceId;
+}
+
+EFaction UFactionState::GetFactionId() const {
+    return this->eFactionId;
+}
+
+void UFactionState::SetFactionId(EFaction newFactionId) {
+    this->eFactionId = newFactionId;
+}
+
 void UFactionState::EnqueueProduction(ECarnageUnitType UnitType)
 {
     if (UUnitBuildDataSubsystem* BuildData = UGameplayStatics::GetGameInstance(this)->GetSubsystem<UUnitBuildDataSubsystem>())

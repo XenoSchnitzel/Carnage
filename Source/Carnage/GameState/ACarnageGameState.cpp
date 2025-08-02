@@ -12,9 +12,14 @@ ACarnageGameState::ACarnageGameState() {
     PrimaryActorTick.bCanEverTick = true;
 }
 
+int32 ACarnageGameState::GetAllianceCount() const
+{
+    return this->FArrayAlliances.Num();;
+}
+
 UFactionState* ACarnageGameState::GetFactionByIndex(int32 Index) const
 {
-    return Factions.IsValidIndex(Index) ? Factions[Index] : nullptr;
+    return FArrayFactions.IsValidIndex(Index) ? FArrayFactions[Index] : nullptr;
 }
 
 UFactionState* ACarnageGameState::GetPlayerFaction() const
@@ -24,25 +29,35 @@ UFactionState* ACarnageGameState::GetPlayerFaction() const
 
 int32 ACarnageGameState::GetFactionCount() const
 {
-    return Factions.Num();
+    return FArrayFactions.Num();
 }
 
 void ACarnageGameState::BeginPlay()
 {    
     Super::BeginPlay();
 
-    if (Factions.Num() == 0)
+    if (FArrayFactions.Num() == 0)
     {
         // Player faction (Index 0)
+        //UFactionState* PlayerFaction = NewObject<UFactionState>(this,)
         UFactionState* PlayerFaction = NewObject<UFactionState>(this);
+
         PlayerFaction->AddResources(1234678);
-        Factions.Add(PlayerFaction);
+        FArrayFactions.Add(PlayerFaction);
 
         // Enemy faction (Index 1)
         UFactionState* EnemyFaction = NewObject<UFactionState>(this);
         EnemyFaction->AddResources(1000000);
-        Factions.Add(EnemyFaction);
+        FArrayFactions.Add(EnemyFaction);
+
+        if (FArrayAlliances.Num() == 0) {
+            UAlliance* AllianceA = NewObject<UAlliance>(this);
+            AllianceA->SetAllianceId(EAlliance::Alliance_A);
+             
+        }
     }
+
+    
 
     if(ACarnageGameMode* GM = GetWorld()->GetAuthGameMode<ACarnageGameMode>())
     {
@@ -55,8 +70,8 @@ void ACarnageGameState::BeginPlay()
 
 void ACarnageGameState::Tick(float DeltaTime)
 {
-    for (int i = 0; i < Factions.Num();i++) {
-        Factions[i]->TickProduction(DeltaTime);
+    for (int i = 0; i < FArrayFactions.Num();i++) {
+        FArrayFactions[i]->TickProduction(DeltaTime);
     }
 }
 

@@ -5,6 +5,7 @@
 UENUM(BlueprintType)
 enum class EAlliance : uint8
 {
+	Alliance_None UMETA(DisplayName = "Alliance_NONE"),
 	Alliance_A UMETA(DisplayName = "Alliance_A"),
 	Alliance_B UMETA(DisplayName = "Alliance_B"),
 	Alliance_C UMETA(DisplayName = "Alliance_C"),
