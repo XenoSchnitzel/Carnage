@@ -18,10 +18,10 @@ class ATopBaseUnit : public ACharacter
 
 public:
 
+	virtual void BeginPlay() override;
+
 	UPROPERTY(BlueprintReadWrite, EditAnywhere)
 		EFaction factionId;
 
-	UPROPERTY(BlueprintReadWrite, EditAnywhere)
-		EAlliance allianceId;
 	
 };

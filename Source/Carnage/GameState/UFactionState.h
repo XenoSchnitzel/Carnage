@@ -5,6 +5,8 @@
 #include "ProductionOrder.h"
 #include "enum/EFaction.h"
 #include "enum/EAlliance.h"
+#include "../SpatialStorage/RTSUnitManagerComponent.h"
+
 #include "UFactionState.generated.h"
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FNewProductionOrderQueued, const FProductionOrder&, CurrentOrder);

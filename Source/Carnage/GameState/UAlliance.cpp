@@ -1,5 +1,6 @@
-#include "enum/EAlliance.h"
 #include "UAlliance.h"
+#include "enum/EAlliance.h"
+
 
 
 EAlliance UAlliance::GetAllianceId() const
@@ -15,6 +16,7 @@ void UAlliance::SetAllianceId(EAlliance eNewAllianceId)
 void UAlliance::AddFaction(UFactionState* newFactionState)
 {
 	this->FArrayFactions.Add(newFactionState);
+    newFactionState->SetAllianceId(this->eAllianceId);
 }
 
 bool UAlliance::RemoveTeamFromAlliance(EFaction removalFactionState) {

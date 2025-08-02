@@ -2,8 +2,11 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameStateBase.h"
+
 #include "UFactionState.h"
 #include "UAlliance.h"
+#include "enum/EFaction.h"
+#include "../SpatialStorage/RTSUnitManagerComponent.h"
 
 #include "ACarnageGameState.generated.h"
 
@@ -18,22 +21,28 @@ class CARNAGE_API ACarnageGameState : public AGameStateBase
 protected:
     
     UPROPERTY(Replicated)
-    int32 myFactionId;
+    EFaction playerFactionId;
 
     UPROPERTY(BlueprintReadWrite, Replicated)
     TArray<UAlliance*> FArrayAlliances;
 
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
-    // List of all factions in the game
+    // List of all factions present in one session
     UPROPERTY(BlueprintReadWrite, EditAnywhere)
     TArray<UFactionState*> FArrayFactions;
 
 public:
     ACarnageGameState();
 
+    UPROPERTY(BlueprintReadWrite, EditAnywhere)
+    URTSUnitManagerComponent* mSpatialStorageManager;
+
     UFUNCTION(BlueprintCallable)
     int32 GetAllianceCount() const;
+
+    UFUNCTION(BlueprintCallable)
+        UFactionState* GetFactionById(EFaction factionId);
 
     UFUNCTION(BlueprintCallable)
         UFactionState* GetPlayerFaction() const;
