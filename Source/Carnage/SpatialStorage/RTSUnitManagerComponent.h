@@ -2,6 +2,8 @@
 
 #include "CoreMinimal.h"
 #include "../GameState/enum/EHostility.h"
+#include "../GameState/enum/EFaction.h"
+#include "../GameState/enum/EAlliance.h"
 #include "Components/ActorComponent.h"
 #include "EUnitStorageStrategy.h"
 #include "IUnitStorageStrategy.h"
@@ -18,13 +20,13 @@ public:
     URTSUnitManagerComponent();
 
     UFUNCTION(BlueprintCallable, Category = "RTS")
-        void RegisterUnit(AActor* Unit, EHostility Team);
+        void RegisterUnit(AActor* Unit, EFaction Faction);
 
     UFUNCTION(BlueprintCallable, Category = "RTS")
         void UnregisterUnit(AActor* Unit);
 
     UFUNCTION(BlueprintCallable, Category = "RTS")
-        AActor* GetClosestEnemyUnit(const FVector2D& Position, EHostility MyTeam) const;
+        AActor* GetClosestEnemyUnit(const FVector2D& Position, EFaction myFaction) const;
 
     UFUNCTION(BlueprintCallable, Category = "RTS")
         void UpdateUnit(AActor* Unit, FVector2D position);
@@ -41,5 +43,5 @@ protected:
 private:
     TUniquePtr<IUnitStorageStrategy> StorageStrategy;
     bool bIsReady = false;
-    TArray<TPair<AActor*, EHostility>> DeferredRegistrations;
+    TArray<TPair<AActor*, EFaction>> DeferredRegistrations;
 };

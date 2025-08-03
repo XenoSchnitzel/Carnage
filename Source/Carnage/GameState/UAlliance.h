@@ -35,4 +35,10 @@ public:
     UFUNCTION(BlueprintCallable)
     bool RemoveTeamFromAlliance(EFaction removalFactionState);
 
+    UFUNCTION(BlueprintCallable)
+    TArray<UFactionState*> GetAllFactions() const;
+
+    UFUNCTION(BlueprintCallable)
+    bool IsFactionInAlliance(EFaction faction);
+
 };

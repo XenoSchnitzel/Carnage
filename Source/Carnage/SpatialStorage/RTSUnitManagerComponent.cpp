@@ -1,7 +1,11 @@
 #include "RTSUnitManagerComponent.h"
 #include "FSpatialHashStorage.h"
 #include "FQuadTreeStorage.h"
+#include "../GameState/ACarnageGameState.h"
+
 #include "../GameState/enum/EHostility.h"
+#include "../GameState/enum/EFaction.h"
+#include "../GameState/enum/EAlliance.h"
 
 URTSUnitManagerComponent::URTSUnitManagerComponent()
 {
@@ -25,17 +29,17 @@ void URTSUnitManagerComponent::BeginPlay()
     DeferredRegistrations.Empty();
 }
 
-void URTSUnitManagerComponent::RegisterUnit(AActor* Unit, EHostility Hostility)
+void URTSUnitManagerComponent::RegisterUnit(AActor* Unit, EFaction Faction)
 {
     if (!bIsReady)
     {
-        DeferredRegistrations.Add(TPair<AActor*, EHostility>(Unit, Hostility));
+        DeferredRegistrations.Add(TPair<AActor*, EFaction>(Unit, Faction));
     }
     else
     {
         if (StorageStrategy)
         {
-            StorageStrategy->AddUnit(Unit, Hostility);
+            StorageStrategy->AddUnit(Unit, Faction);
         }
     }
 }
@@ -48,57 +52,27 @@ void URTSUnitManagerComponent::UnregisterUnit(AActor* Unit)
     }
 }
 
-AActor* URTSUnitManagerComponent::GetClosestEnemyUnit(const FVector2D& Position, EHostility Hostility) const
+AActor* URTSUnitManagerComponent::GetClosestEnemyUnit(const FVector2D& Position, EFaction myFaction) const
 {
     if (StorageStrategy)
     {
-        EHostility MyHostility = (Hostility == EHostility::Friendly) ? EHostility::Enemy : EHostility::Friendly;
-        return StorageStrategy->FindNearestUnit(Position, MyHostility);
+        ACarnageGameState* CarnageGameState = Cast<ACarnageGameState>(GetOwner());
+        check(CarnageGameState); 
+
+        TArray<UAlliance*> alliances = CarnageGameState->GetAlliances();
+        for (UAlliance* alliance : alliances) {
+
+        }
+
+        return StorageStrategy->FindNearestUnit(Position, myFaction);
     }
 
     return nullptr;
 }
 
-UFUNCTION(BlueprintCallable, Category = "RTS")
 void URTSUnitManagerComponent::UpdateUnit(AActor* Unit, FVector2D position) {
     if (StorageStrategy)
     {
         StorageStrategy->UpdateUnit(Unit, position);
     }
 }
-
-//void URTSUnitManagerComponent::BeginPlay()
-//{
-//    Super::BeginPlay();
-//
-//    switch (StrategyType)
-//    {
-//    case EUnitStorageStrategy::SpatialHashing:
-//        Strategy = MakeUnique<FSpatialHashStorage>(CellSize);
-//        break;
-//
-//    case EUnitStorageStrategy::Quadtree:
-//        Strategy = MakeUnique<FQuadTreeStorage>();
-//        break;
-//
-//    default:
-//        UE_LOG(LogTemp, Warning, TEXT("Unknown strategy! Defaulting to SpatialHashing"));
-//        Strategy = MakeUnique<FSpatialHashStorage>(CellSize);
-//        break;
-//    }
-//}
-//
-//void URTSUnitManagerComponent::RegisterUnit(AActor* Unit)
-//{
-//    if (Strategy) Strategy->AddUnit(Unit);
-//}
-//
-//void URTSUnitManagerComponent::UnregisterUnit(AActor* Unit)
-//{
-//    if (Strategy) Strategy->RemoveUnit(Unit);
-//}
-//
-//AActor* URTSUnitManagerComponent::GetClosestUnit(const FVector2D& Position) const
-//{
-//    return Strategy ? Strategy->FindNearestUnit(Position) : nullptr;
-//}

@@ -30,3 +30,17 @@ bool UAlliance::RemoveTeamFromAlliance(EFaction removalFactionState) {
 
     return false;
 }
+
+bool UAlliance::IsFactionInAlliance(EFaction faction) {
+    for (UFactionState* factionState : FArrayFactions) {
+        if (factionState->GetFactionId() == faction) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+TArray<UFactionState*> UAlliance::GetAllFactions() const {
+    return FArrayFactions;
+}

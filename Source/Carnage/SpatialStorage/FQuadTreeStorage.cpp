@@ -1,6 +1,7 @@
 
 #include "FQuadTreeStorage.h"
 #include "GameFramework/Actor.h"
+#include "../GameState/enum/EFaction.h"
 #include "Math/UnrealMathUtility.h"
 
 FQuadTreeStorage::FQuadTreeNode::FQuadTreeNode(const FBox2D& InBounds, int32 InDepth)
@@ -124,20 +125,26 @@ void FQuadTreeStorage::FQuadTreeNode::Query(const FVector2D& Position, float& Cl
 FQuadTreeStorage::FQuadTreeStorage(const FBox2D& InBounds, int32 InMaxDepth, int32 InMaxObjectsPerNode)
     : MaxDepth(InMaxDepth), MaxObjectsPerNode(InMaxObjectsPerNode)
 {
-    RootNodes[static_cast<int32>(EHostility::Friendly)] = MakeUnique<FQuadTreeNode>(InBounds, 0);
-    RootNodes[static_cast<int32>(EHostility::Enemy)] = MakeUnique<FQuadTreeNode>(InBounds, 0);
+    RootNodes[static_cast<int32>(EFaction::Faction_1)] = MakeUnique<FQuadTreeNode>(InBounds, 0);
+    RootNodes[static_cast<int32>(EFaction::Faction_2)] = MakeUnique<FQuadTreeNode>(InBounds, 0);
+    RootNodes[static_cast<int32>(EFaction::Faction_3)] = MakeUnique<FQuadTreeNode>(InBounds, 0);
+    RootNodes[static_cast<int32>(EFaction::Faction_4)] = MakeUnique<FQuadTreeNode>(InBounds, 0);
+    RootNodes[static_cast<int32>(EFaction::Faction_5)] = MakeUnique<FQuadTreeNode>(InBounds, 0);
+    RootNodes[static_cast<int32>(EFaction::Faction_6)] = MakeUnique<FQuadTreeNode>(InBounds, 0);
+    RootNodes[static_cast<int32>(EFaction::Faction_7)] = MakeUnique<FQuadTreeNode>(InBounds, 0);
+    RootNodes[static_cast<int32>(EFaction::Faction_8)] = MakeUnique<FQuadTreeNode>(InBounds, 0);
 }
 
-void FQuadTreeStorage::AddUnit(AActor* Unit, EHostility Team)
+void FQuadTreeStorage::AddUnit(AActor* Unit, EFaction myTeam)
 {
     if (!Unit) return;
 
     FVector2D Pos(Unit->GetActorLocation().X, Unit->GetActorLocation().Y);
-    int32 TeamIndex = static_cast<int32>(Team);
+    int32 TeamIndex = static_cast<int32>(myTeam);
 
     if (RootNodes[TeamIndex] && RootNodes[TeamIndex]->Insert(Unit, Pos, MaxDepth, MaxObjectsPerNode))
     {
-        UnitToTeamMap.Add(Unit, Team);
+        UnitToTeamMap.Add(Unit, myTeam);
         UnitToPositionMap.Add(Unit, Pos);
     }
 }
@@ -146,7 +153,7 @@ void FQuadTreeStorage::RemoveUnit(AActor* Unit)
 {
     if (!Unit) return;
 
-    if (const EHostility* TeamPtr = UnitToTeamMap.Find(Unit))
+    if (const EFaction* TeamPtr = UnitToTeamMap.Find(Unit))
     {
         int32 TeamIndex = static_cast<int32>(*TeamPtr);
         FVector2D Pos = UnitToPositionMap.FindRef(Unit);
@@ -160,9 +167,9 @@ void FQuadTreeStorage::RemoveUnit(AActor* Unit)
     }
 }
 
-AActor* FQuadTreeStorage::FindNearestUnit(const FVector2D& Position, EHostility EnemyTeam) const
+AActor* FQuadTreeStorage::FindNearestUnit(const FVector2D& Position, EFaction myTeam) const
 {
-    int32 TeamIndex = static_cast<int32>(EnemyTeam);
+    int32 TeamIndex = static_cast<int32>(myTeam);
     if (!RootNodes[TeamIndex]) return nullptr;
 
     float ClosestDistSq = TNumericLimits<float>::Max();
@@ -182,7 +189,7 @@ void FQuadTreeStorage::UpdateUnit(AActor* Unit, const FVector2D& NewPosition)
     // Optional Threshold zum Vermeiden unnötiger Updates (z.B. 1cm)
     if (DistSq > KINDA_SMALL_NUMBER)
     {
-        if (const EHostility* TeamPtr = UnitToTeamMap.Find(Unit))
+        if (const EFaction* TeamPtr = UnitToTeamMap.Find(Unit))
         {
             int32 TeamIndex = static_cast<int32>(*TeamPtr);
 

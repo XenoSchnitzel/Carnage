@@ -19,6 +19,8 @@ class CARNAGE_API ACarnageGameState : public AGameStateBase
     static int32 NextUnitId;
 
 protected:
+
+    virtual void BeginPlay() override;
     
     UPROPERTY(Replicated)
     EFaction playerFactionId;
@@ -32,6 +34,10 @@ protected:
     UPROPERTY(BlueprintReadWrite, EditAnywhere)
     TArray<UFactionState*> FArrayFactions;
 
+
+    UFUNCTION(BlueprintCallable)
+    virtual void Tick(float DeltaTime) override;
+
 public:
     ACarnageGameState();
 
@@ -40,6 +46,9 @@ public:
 
     UFUNCTION(BlueprintCallable)
     int32 GetAllianceCount() const;
+
+    UFUNCTION(BlueprintCallable) const
+        TArray<UAlliance*> GetAlliances();
 
     UFUNCTION(BlueprintCallable)
         UFactionState* GetFactionById(EFaction factionId);
@@ -56,10 +65,7 @@ public:
     UFUNCTION(BlueprintCallable)
         static int32 GetNextUnitId();
 
-
-    virtual void Tick(float DeltaTime) override;
-
-protected:
-    virtual void BeginPlay() override;
+    UFUNCTION(BlueprintCallable)
+    TArray<UFactionState*> GetAllFactionsOfAlliance(EFaction faction);
 
 };

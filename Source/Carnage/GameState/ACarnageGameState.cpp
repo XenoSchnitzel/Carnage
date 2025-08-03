@@ -25,6 +25,11 @@ int32 ACarnageGameState::GetAllianceCount() const
     return this->FArrayAlliances.Num();;
 }
 
+const TArray<UAlliance*> ACarnageGameState::GetAlliances()
+{
+    return this->FArrayAlliances;
+}
+
 UFactionState* ACarnageGameState::GetFactionByIndex(int32 Index) const
 {
     return FArrayFactions.IsValidIndex(Index) ? FArrayFactions[Index] : nullptr;
@@ -55,6 +60,18 @@ UFactionState* ACarnageGameState::GetPlayerFaction() const
 int32 ACarnageGameState::GetFactionCount() const
 {
     return FArrayFactions.Num();
+}
+
+TArray<UFactionState*> ACarnageGameState::GetAllFactionsOfAlliance(EFaction faction) {
+    for (UAlliance* alliance : FArrayAlliances) {
+        if (alliance->IsFactionInAlliance(faction)) {
+            return alliance->GetAllFactions();
+        }
+    }
+
+    TArray<UFactionState*> empty;
+
+    return empty;
 }
 
 void ACarnageGameState::BeginPlay()
