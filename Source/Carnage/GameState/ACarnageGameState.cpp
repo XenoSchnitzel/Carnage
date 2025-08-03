@@ -82,15 +82,15 @@ void ACarnageGameState::BeginPlay()
 
     if (FArrayFactions.Num() == 0)
     {
-        // Player faction (Index 0)
-        //UFactionState* PlayerFaction = NewObject<UFactionState>(this,)
+        // Player faction
         UFactionState* PlayerFaction = NewObject<UFactionState>(this);
-
+        PlayerFaction->SetFactionId(EFaction::Faction_1);
         PlayerFaction->AddResources(1234678);
         FArrayFactions.Add(PlayerFaction);
 
-        // Enemy faction (Index 1)
+        // Enemy faction
         UFactionState* AlienFaction = NewObject<UFactionState>(this);
+        AlienFaction->SetFactionId(EFaction::Faction_2);
         AlienFaction->AddResources(1000000);
         FArrayFactions.Add(AlienFaction);
 
@@ -134,5 +134,9 @@ void ACarnageGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
     DOREPLIFETIME(ACarnageGameState, playerFactionId);
+}
+
+void ACarnageGameState::RegisterUnit(ATopBaseUnit* unit) {
+    mSpatialStorageManager->RegisterUnit(unit, unit->FactionId);
 }
 

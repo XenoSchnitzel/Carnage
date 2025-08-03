@@ -8,9 +8,12 @@ public class CarnageEditorTarget : TargetRules
 	public CarnageEditorTarget(TargetInfo Target) : base(Target)
 	{
 		Type = TargetType.Editor;
-		DefaultBuildSettings = BuildSettingsVersion.V2;
+		//DefaultBuildSettings = BuildSettingsVersion.V2;
 		ExtraModuleNames.Add("Carnage");
         WindowsPlatform.CompilerVersion = "14.38.33130";
+        DefaultBuildSettings = BuildSettingsVersion.V4;
+        IncludeOrderVersion = EngineIncludeOrderVersion.Latest;
+        CppStandard = CppStandardVersion.Cpp20;
         //WindowsPlatform.Compiler = WindowsCompiler.Clang; // Nur wenn du Clang wirklich nutzt
     }
 }

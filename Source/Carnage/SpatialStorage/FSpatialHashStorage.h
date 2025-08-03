@@ -45,7 +45,7 @@ private:
     };
 
     // Separate Hash Grids für Friendly (0) und Enemy (1)
-    TMap<FInt2DKey, TSet<AActor*>> TeamGrids[2];
+    TMap<FInt2DKey, TSet<AActor*>> TeamGrids[EFaction_NumFactions];
 
     // Tracking Maps
     TMap<AActor*, FInt2DKey> UnitToCellMap;

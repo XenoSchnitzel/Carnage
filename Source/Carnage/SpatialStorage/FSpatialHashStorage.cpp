@@ -5,7 +5,9 @@
 
 FSpatialHashStorage::FSpatialHashStorage(float InCellSize)
     : CellSize(InCellSize)
-{}
+{
+
+}
 
 FSpatialHashStorage::FInt2DKey FSpatialHashStorage::GetCellForPosition(const FVector2D& Position) const
 {

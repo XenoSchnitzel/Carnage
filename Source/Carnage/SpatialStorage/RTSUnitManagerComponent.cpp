@@ -1,8 +1,9 @@
 #include "RTSUnitManagerComponent.h"
 #include "FSpatialHashStorage.h"
 #include "FQuadTreeStorage.h"
-#include "../GameState/ACarnageGameState.h"
+#include "../GameState/UFactionState.h"
 
+#include "../GameState/ACarnageGameState.h"
 #include "../GameState/enum/EHostility.h"
 #include "../GameState/enum/EFaction.h"
 #include "../GameState/enum/EAlliance.h"
@@ -54,20 +55,38 @@ void URTSUnitManagerComponent::UnregisterUnit(AActor* Unit)
 
 AActor* URTSUnitManagerComponent::GetClosestEnemyUnit(const FVector2D& Position, EFaction myFaction) const
 {
+    AActor* returnCandidate = nullptr;
+
     if (StorageStrategy)
     {
         ACarnageGameState* CarnageGameState = Cast<ACarnageGameState>(GetOwner());
         check(CarnageGameState); 
+      
+        //Lets start HUUGE
+        double closestLength = DBL_MAX;
 
         TArray<UAlliance*> alliances = CarnageGameState->GetAlliances();
         for (UAlliance* alliance : alliances) {
 
-        }
+            if (!alliance->IsFactionInAlliance(myFaction)) {
+                for (UFactionState* faction : alliance->GetAllFactions()) {
 
-        return StorageStrategy->FindNearestUnit(Position, myFaction);
+                    AActor* currentCandidate = StorageStrategy->FindNearestUnit(Position, faction->GetFactionId());
+                    
+                    if (currentCandidate) {
+                        FVector Location = currentCandidate->GetActorLocation();
+                        double currentLength = FVector2D(Location.X - Position.X, Location.Y - Position.Y).SquaredLength();
+                        if (currentLength < closestLength) {
+                            closestLength = currentLength;
+                            returnCandidate = currentCandidate;
+                        }
+                    }
+                }
+            }
+        }
     }
 
-    return nullptr;
+    return returnCandidate;
 }
 
 void URTSUnitManagerComponent::UpdateUnit(AActor* Unit, FVector2D position) {

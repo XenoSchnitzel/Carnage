@@ -7,6 +7,7 @@
 #include "UAlliance.h"
 #include "enum/EFaction.h"
 #include "../SpatialStorage/RTSUnitManagerComponent.h"
+#include "../Unit/ATopBaseUnit.h"
 
 #include "ACarnageGameState.generated.h"
 
@@ -67,5 +68,8 @@ public:
 
     UFUNCTION(BlueprintCallable)
     TArray<UFactionState*> GetAllFactionsOfAlliance(EFaction faction);
+
+    UFUNCTION(BlueprintCallable)
+    void RegisterUnit(ATopBaseUnit* unit);
 
 };

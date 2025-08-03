@@ -21,7 +21,7 @@ public:
 	virtual void BeginPlay() override;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere)
-		EFaction factionId;
+		EFaction FactionId;
 
 	
 };
