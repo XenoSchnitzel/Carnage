@@ -35,8 +35,11 @@ Thumbs.db
 *.uasset
 *.umap
 
-# Ausnahme für Blueprints-Ordner
+# Ausnahme für Blueprints-Ordner und Karten
+!Content/TopDown/Maps/Level_01.umap
+!Content/TopDown/Maps/TopDownMap.umap
 !Content/TopDown/Blueprints/**/*.uasset
+
 
 # Unreal Launcher & Editor Logs
 *.log
