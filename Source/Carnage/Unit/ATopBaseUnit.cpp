@@ -11,4 +11,23 @@ void ATopBaseUnit::BeginPlay()
 		GameState->RegisterUnit(this);
 	}
 
+	this->ECurrentUnitMakroState = EUnitMakroState::UnitMakroState_Idle;
+	this->ECurrentUnitMikroState = EUnitMikroState::UnitMikroState_Idle_Chilling;
+
+}
+
+EUnitMakroState ATopBaseUnit::GetUnitMakroState() const
+{
+	return ECurrentUnitMakroState;
+}
+
+EUnitMikroState ATopBaseUnit::GetUnitMikroState() const
+{
+	return ECurrentUnitMikroState;
+}
+
+void ATopBaseUnit::SetUnitState(EUnitMakroState makroState, EUnitMikroState mikroState)
+{
+	ECurrentUnitMakroState = makroState;
+	ECurrentUnitMikroState = mikroState;
 }
