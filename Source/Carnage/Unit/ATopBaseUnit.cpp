@@ -4,6 +4,11 @@
 
 #include "../Logging/StateLogger.h"
 
+ATopBaseUnit::ATopBaseUnit()
+{
+	AttackComponent = CreateDefaultSubobject<UAttackComponent>(TEXT("AttackComponent"));
+}
+
 void ATopBaseUnit::BeginPlay()
 {
 	CVarStateSystemLog->Set(1, ECVF_SetByCode); //Enables Makro/Mikro State Changes logging by default 
@@ -14,6 +19,8 @@ void ATopBaseUnit::BeginPlay()
 	r.StateSystem.Log 0   // disable logs */ 
 	
 	Super::BeginPlay();
+
+
 
 	if (ACarnageGameState* GameState = Cast<ACarnageGameState>(GetWorld()->GetGameState()))
 	{
@@ -77,8 +84,8 @@ void ATopBaseUnit::AttackingState(float DeltaSeconds)
 		AttackCooldownPeformingState(DeltaSeconds);
 		break;
 	default:
-		//checkf(false, TEXT("Unhandled MikroState in AttackingState: %s"),
-		//	*UEnum::GetValueAsString(ECurrentUnitMikroState));
+		checkf(false, TEXT("Unhandled MikroState in AttackingState: %s"),
+			*UEnum::GetValueAsString(ECurrentUnitMikroState));
 		break;
 	}
 }

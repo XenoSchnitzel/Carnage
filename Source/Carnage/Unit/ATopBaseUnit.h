@@ -6,6 +6,7 @@
 #include "GameFramework/Character.h"
 #include "../GameState/enum/EFaction.h"
 #include "../GameState/enum/EAlliance.h"
+#include "UAttackComponent.h"
 #include "EUnitStates.h"
 
 
@@ -46,14 +47,18 @@ class ATopBaseUnit : public ACharacter
 
 protected:
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	UAttackComponent* AttackComponent;
+
 #pragma region State_Machine
 
 	virtual void Tick(float DeltaSeconds) override;
 
 #pragma endregion
 
-
 public:
+
+	ATopBaseUnit();
 
 	virtual void BeginPlay() override;
 
