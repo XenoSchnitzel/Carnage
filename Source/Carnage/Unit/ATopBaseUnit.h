@@ -89,7 +89,7 @@ protected:
 	/** Called when another actor stops overlapping this actor */
 	virtual void NotifyActorEndOverlap(AActor* OtherActor) override;
 
-	virtual void Tick(float DeltaSeconds) override;
+	virtual void Tick(float DeltaTime) override;
 
 #pragma endregion
 
@@ -97,10 +97,30 @@ public:
 
 	ATopBaseUnit();
 
+	UPROPERTY(BlueprintReadWrite, EditAnywhere)
+	AActor* AttackTarget = nullptr;
+
 	virtual void BeginPlay() override;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere)
 		EFaction FactionId;
+
+
+#pragma region Commands
+
+	UFUNCTION(BlueprintCallable, Category = "Unit|Movement")
+	void StartAttackCommand(ATopBaseUnit* target);
+
+	UFUNCTION(BlueprintCallable, Category = "Unit|Movement")
+	void StopCommand();
+
+	// von BP UND C++ überschreibbar
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Unit|Movement")
+	void MoveToCommand(const FVector& NewPos);
+	// Hinweis: keine Parameteränderung hier!
+	virtual void MoveToCommand_Implementation(const FVector& NewPos); // C++-Default
+
+#pragma endregion
 
 	UFUNCTION(BlueprintCallable)
 	void SetUnitState(EUnitMakroState makroState, EUnitMikroState mikroState);

@@ -2,6 +2,13 @@
 #include "ATopBaseUnit.h"
 #include "../GameState/ACarnageGameState.h"
 
+#include "Kismet/GameplayStatics.h"
+#include "Blueprint/AIBlueprintHelperLibrary.h"
+#include "AIController.h"
+#include "Tasks/AITask_MoveTo.h"
+
+#include "Navigation/PathFollowingComponent.h"   // für EPath
+
 #include "../Logging/StateLogger.h"
 #include "../SpatialStorage/RTSUnitManagerComponent.h"
 
@@ -34,6 +41,57 @@ void ATopBaseUnit::BeginPlay()
 	p_fStateTimeCounter = 0.0f;
 }
 
+#pragma region Commands
+
+void ATopBaseUnit::StartAttackCommand(ATopBaseUnit* target)
+{
+}
+
+void ATopBaseUnit::StopCommand()
+{
+}
+
+void ATopBaseUnit::MoveToCommand_Implementation(const FVector &newPos)
+{
+	//A movement start invalidates any attack targets
+	AttackTarget = nullptr;
+
+	SetUnitState(
+		EUnitMakroState::UnitMakroState_Moving,
+		EUnitMikroState::UnitMikroState_Move_Direct_Move);
+
+	AAIController* AI = UAIBlueprintHelperLibrary::GetAIController(this);
+	if (!AI) { return; }
+
+	// If you don't terminate an ongoing movement, you
+	// run into trouble with the AI trying to reach
+	// all instructed positions
+	const auto MoveStatus = AI->GetMoveStatus();
+	if (MoveStatus == EPathFollowingStatus::Moving
+		|| MoveStatus == EPathFollowingStatus::Type::Moving)
+	{
+		AI->StopMovement();
+	}
+
+	//Now actually initiate moving task
+	UAITask_MoveTo* Task = UAITask_MoveTo::AIMoveTo(
+		/* AI Controller*/AI,
+		/* Goal Location*/newPos,
+		/* Goal Actor */nullptr,
+		/* AcceptanceRadius */ 50.f,
+		/* Stop on Overlap */EAIOptionFlag::Enable,
+		/* Accept Partial Path */EAIOptionFlag::Disable,
+		/* Use Pathfindein */true,
+		/* Lock all logic*/false,
+		/* Use continuos goal tracking*/false,
+		/* Projekt goal on navigation*/EAIOptionFlag::Enable);
+
+	Task->ReadyForActivation();
+
+}
+
+#pragma endregion
+
 EUnitMakroState ATopBaseUnit::GetUnitMakroState() const
 {
 	return ECurrentUnitMakroState;
@@ -43,6 +101,8 @@ EUnitMikroState ATopBaseUnit::GetUnitMikroState() const
 {
 	return ECurrentUnitMikroState;
 }
+
+
 
 void ATopBaseUnit::SetUnitState(EUnitMakroState makroState, EUnitMikroState mikroState)
 {
@@ -111,21 +171,23 @@ void ATopBaseUnit::AttackCooldownPeformingState(float DeltaSeconds)
 {
 }
 
-void ATopBaseUnit::Tick(float DeltaSeconds)
+void ATopBaseUnit::Tick(float DeltaTime)
 {
-	p_fStateTimeCounter += DeltaSeconds;
+	Super::Tick(DeltaTime);
 
-	Super::Tick(DeltaSeconds);
+	p_fStateTimeCounter += DeltaTime;
+
+	DampOverlappingUnits(DeltaTime);
 
 	switch (ECurrentUnitMakroState) {
 	case EUnitMakroState::UnitMakroState_Idle:
-		IdleState(DeltaSeconds);
+		IdleState(DeltaTime);
 		break;
 	case EUnitMakroState::UnitMakroState_Moving:
-		MovingState(DeltaSeconds);
+		MovingState(DeltaTime);
 		break;
 	case EUnitMakroState::UnitMakroState_Attacking:
-		AttackingState(DeltaSeconds);
+		AttackingState(DeltaTime);
 		break;
 	default:
 		//checkf(false, TEXT("Unhandled MikroState in AttackingState: %s"),
