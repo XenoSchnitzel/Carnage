@@ -1,6 +1,4 @@
-﻿// Copyright Epic Games, Inc. All Rights Reserved.
-
-#pragma once
+﻿#pragma once
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
@@ -9,9 +7,10 @@
 #include "UAttackComponent.h"
 #include "EUnitStates.h"
 
-
 #include "ATopBaseUnit.generated.h"
 
+// Delegate that broadcasts when this unit dies
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnDeath);
 
 /** Result of GetClosestEnemyUnit */
 USTRUCT(BlueprintType)
@@ -44,6 +43,9 @@ class ATopBaseUnit : public ACharacter
 	UPROPERTY(BlueprintGetter = GetUnitMikroState, Category = "__State")
 	EUnitMikroState ECurrentUnitMikroState;
 
+	/** Clear references, remove delegates, ...*/
+	void InvalidateTarget();
+
 #pragma region State_Machine
 
 	//State changes always set this counter to zero
@@ -66,6 +68,12 @@ class ATopBaseUnit : public ACharacter
 
 protected:
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Selection")
+	bool bIsSelected = false;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Selection")
+	bool bIsPreSelected = false;
+
 	// --- Fast set of overlapping units (O(1) add/remove, order not guaranteed) ---
 	UPROPERTY(VisibleAnywhere, Category = "Overlap")
 	TSet<TWeakObjectPtr<ATopBaseUnit>> OverlappingUnits;
@@ -82,6 +90,18 @@ protected:
 	FClosestEnemyResult GetClosestEnemyUnit() const;
 
 #pragma region Events
+
+	/** Event that gets fired when this unit dies */
+	UPROPERTY(BlueprintAssignable, Category = "Unit|Combat")
+	FOnDeath OnDeath;
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Events")
+	void OnMyDeath();
+	virtual void OnMyDeath_Implementation();
+
+	UFUNCTION(BlueprintCallable, Category = "Events")
+	void BroadcastOnDeath();
+
 
 	/** Called when another actor starts overlapping this actor */
 	virtual void NotifyActorBeginOverlap(AActor* OtherActor) override;
@@ -105,11 +125,33 @@ public:
 	UPROPERTY(BlueprintReadWrite, EditAnywhere)
 		EFaction FactionId;
 
+	/** Called when the current attack target dies */
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Events")
+	 void OnAttackTargetDeath();
+	 virtual void OnAttackTargetDeath_Implementation();
+
+	 UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Selection")
+	 void SelectUnit();
+	 virtual void SelectUnit_Implementation();
+
+	 UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Selection")
+	 void DeSelectUnit();
+	 virtual void DeSelectUnit_Implementation();
+
+	 UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Selection")
+	 void PreSelectUnit();
+	 virtual void PreSelectUnit_Implementation();
+
+	 UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Selection")
+	 void DePreSelectUnit();
+	 virtual void DePreSelectUnit_Implementation();
+
 
 #pragma region Commands
 
-	UFUNCTION(BlueprintCallable, Category = "Unit|Movement")
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Unit|Movement")
 	void StartAttackCommand(ATopBaseUnit* target);
+	virtual void StartAttackCommand_Implementation(ATopBaseUnit* attackTarget);
 
 	UFUNCTION(BlueprintCallable, Category = "Unit|Movement")
 	void StopCommand();
@@ -117,8 +159,7 @@ public:
 	// von BP UND C++ überschreibbar
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Unit|Movement")
 	void MoveToCommand(const FVector& NewPos);
-	// Hinweis: keine Parameteränderung hier!
-	virtual void MoveToCommand_Implementation(const FVector& NewPos); // C++-Default
+	virtual void MoveToCommand_Implementation(const FVector& NewPos); 
 
 #pragma endregion
 

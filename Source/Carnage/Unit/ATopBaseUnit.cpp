@@ -11,6 +11,9 @@
 
 #include "../Logging/StateLogger.h"
 #include "../SpatialStorage/RTSUnitManagerComponent.h"
+#include "EUnitStates.h"
+
+#pragma region Construction
 
 ATopBaseUnit::ATopBaseUnit()
 {
@@ -19,7 +22,7 @@ ATopBaseUnit::ATopBaseUnit()
 
 void ATopBaseUnit::BeginPlay()
 {
-	CVarStateSystemLog->Set(1, ECVF_SetByCode); //Enables Makro/Mikro State Changes logging by default 
+	//CVarStateSystemLog->Set(1, ECVF_SetByCode); //Enables Makro/Mikro State Changes logging by default 
 	
 	/* - OR - type in game console:
 
@@ -41,14 +44,123 @@ void ATopBaseUnit::BeginPlay()
 	p_fStateTimeCounter = 0.0f;
 }
 
+#pragma endregion
+
+#pragma region events
+
+void ATopBaseUnit::SelectUnit_Implementation()
+{
+	bIsSelected = true;
+}
+
+void ATopBaseUnit::DeSelectUnit_Implementation()
+{
+	bIsSelected = false;
+}
+
+void ATopBaseUnit::PreSelectUnit_Implementation()
+{
+	bIsPreSelected = true;
+}
+
+void ATopBaseUnit::DePreSelectUnit_Implementation()
+{
+	bIsPreSelected = false;
+}
+
+
+void ATopBaseUnit::OnMyDeath_Implementation()
+{
+	APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0);
+
+	if (PC)
+	{
+		// Wir rufen die BP-Funktion dynamisch auf, damit kein C++-Controller nötig ist.
+		// Signatur in BP: Event UnitDeath( BP_BaseUnit* Unit )
+		static const FName FuncName(TEXT("Event UnitDeath"));
+		if (UFunction* Func = PC->FindFunction(FuncName))
+		{
+			struct FEventUnitDeath_Params
+			{
+				ATopBaseUnit* Unit = nullptr;
+			};
+
+			FEventUnitDeath_Params Params;
+			Params.Unit = this;
+
+			PC->ProcessEvent(Func, &Params);
+		}
+	}
+
+	// 3) Danach eigenes DeSelect() wie im Blueprint
+	DeSelectUnit();
+}
+
+void ATopBaseUnit::BroadcastOnDeath()
+{
+	OnDeath.Broadcast();
+}
+
+// --- Begin overlap: add to set (O(1)) ---
+void ATopBaseUnit::NotifyActorBeginOverlap(AActor* OtherActor)
+{
+	Super::NotifyActorBeginOverlap(OtherActor);
+
+	if (OtherActor && OtherActor != this)
+	{
+		if (ATopBaseUnit* OtherUnit = Cast<ATopBaseUnit>(OtherActor))
+		{
+			OverlappingUnits.Add(OtherUnit);
+		}
+	}
+}
+
+// --- End overlap: remove from set (O(1)) ---
+void ATopBaseUnit::NotifyActorEndOverlap(AActor* OtherActor)
+{
+	Super::NotifyActorEndOverlap(OtherActor);
+
+	if (OtherActor && OtherActor != this)
+	{
+		if (ATopBaseUnit* OtherUnit = Cast<ATopBaseUnit>(OtherActor))
+		{
+			OverlappingUnits.Remove(OtherUnit);
+		}
+	}
+}
+
+void ATopBaseUnit::OnAttackTargetDeath_Implementation()
+{
+	UE_LOG(LogTemp, Log, TEXT("Attack target of %s has died"), *GetName());
+
+	StopCommand();
+}
+
+
+#pragma endregion
+
 #pragma region Commands
 
-void ATopBaseUnit::StartAttackCommand(ATopBaseUnit* target)
+void ATopBaseUnit::StartAttackCommand_Implementation(ATopBaseUnit* attackTarget)
 {
+	SetUnitState(EUnitMakroState::UnitMakroState_Attacking,
+		EUnitMikroState::UnitMikroState_Attack_Rotate);
+
+	InvalidateTarget();
+
+	// Take in new target
+	AttackTarget = attackTarget;
+
+	// Hang onto its death event, in order to scan for new targets eventually or fall back to 
+	attackTarget->OnDeath.AddDynamic(this, &ATopBaseUnit::OnAttackTargetDeath);
+	
 }
 
 void ATopBaseUnit::StopCommand()
 {
+	InvalidateTarget();
+
+	SetUnitState(EUnitMakroState::UnitMakroState_Idle, EUnitMikroState::UnitMikroState_Idle_Chilling);
 }
 
 void ATopBaseUnit::MoveToCommand_Implementation(const FVector &newPos)
@@ -92,6 +204,8 @@ void ATopBaseUnit::MoveToCommand_Implementation(const FVector &newPos)
 
 #pragma endregion
 
+#pragma region State_Machine
+
 EUnitMakroState ATopBaseUnit::GetUnitMakroState() const
 {
 	return ECurrentUnitMakroState;
@@ -101,7 +215,6 @@ EUnitMikroState ATopBaseUnit::GetUnitMikroState() const
 {
 	return ECurrentUnitMikroState;
 }
-
 
 
 void ATopBaseUnit::SetUnitState(EUnitMakroState makroState, EUnitMikroState mikroState)
@@ -116,7 +229,6 @@ void ATopBaseUnit::SetUnitState(EUnitMakroState makroState, EUnitMikroState mikr
 		*UEnum::GetValueAsString(ECurrentUnitMikroState));
 }
 
-#pragma region State_Machine
 
 void ATopBaseUnit::IdleState(float DeltaSeconds)
 {
@@ -198,6 +310,24 @@ void ATopBaseUnit::Tick(float DeltaTime)
 
 #pragma endregion
 
+#pragma region helpers
+
+void ATopBaseUnit::InvalidateTarget()
+{
+
+	ATopBaseUnit* TargetUnit = Cast<ATopBaseUnit>(AttackTarget);
+
+	// Remove delegate from old target about to be invalidated
+	if (TargetUnit)
+	{
+		TargetUnit->OnDeath.RemoveDynamic(this, &ATopBaseUnit::OnAttackTargetDeath);
+	}
+
+	// Clear reference since target is gone
+	AttackTarget = nullptr;
+
+}
+
 // --- Returns closest enemy unit, distance and a success flag (matches BP flow) ---
 FClosestEnemyResult ATopBaseUnit::GetClosestEnemyUnit() const
 {
@@ -237,33 +367,6 @@ FClosestEnemyResult ATopBaseUnit::GetClosestEnemyUnit() const
 	return Result;
 }
 
-// --- Begin overlap: add to set (O(1)) ---
-void ATopBaseUnit::NotifyActorBeginOverlap(AActor* OtherActor)
-{
-	Super::NotifyActorBeginOverlap(OtherActor);
-
-	if (OtherActor && OtherActor != this)
-	{
-		if (ATopBaseUnit* OtherUnit = Cast<ATopBaseUnit>(OtherActor))
-		{
-			OverlappingUnits.Add(OtherUnit);
-		}
-	}
-}
-
-// --- End overlap: remove from set (O(1)) ---
-void ATopBaseUnit::NotifyActorEndOverlap(AActor* OtherActor)
-{
-	Super::NotifyActorEndOverlap(OtherActor);
-
-	if (OtherActor && OtherActor != this)
-	{
-		if (ATopBaseUnit* OtherUnit = Cast<ATopBaseUnit>(OtherActor))
-		{
-			OverlappingUnits.Remove(OtherUnit);
-		}
-	}
-}
 
 void ATopBaseUnit::DampOverlappingUnits(float DeltaTime)
 {
@@ -295,3 +398,6 @@ void ATopBaseUnit::DampOverlappingUnits(float DeltaTime)
 	FHitResult SweepHit;
 	SetActorLocation(NewLoc, /*bSweep*/ true, &SweepHit, ETeleportType::None);
 }
+
+#pragma endregion
+
