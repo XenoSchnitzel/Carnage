@@ -1,4 +1,4 @@
-// Copyright Epic Games, Inc. All Rights Reserved.
+﻿// Copyright Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -12,6 +12,25 @@
 
 #include "ATopBaseUnit.generated.h"
 
+
+/** Result of GetClosestEnemyUnit */
+USTRUCT(BlueprintType)
+struct FClosestEnemyResult
+{
+	GENERATED_BODY()
+
+	/** Closest enemy unit (nullptr if none) */
+	UPROPERTY(BlueprintReadOnly)
+	ATopBaseUnit* ClosestEnemy = nullptr;
+
+	/** Distance in world units (0.0f if none) */
+	UPROPERTY(BlueprintReadOnly)
+	float ClosestEnemyDistance = 0.0f;
+
+	/** True if an enemy was found */
+	UPROPERTY(BlueprintReadOnly)
+	bool EnemyFound = false;
+};
 
 //TODO: rename ATopBaseUnit to BaseUnit once full c++ migration has happened.
 UCLASS(Blueprintable)
@@ -47,10 +66,28 @@ class ATopBaseUnit : public ACharacter
 
 protected:
 
+	// --- Fast set of overlapping units (O(1) add/remove, order not guaranteed) ---
+	UPROPERTY(VisibleAnywhere, Category = "Overlap")
+	TSet<TWeakObjectPtr<ATopBaseUnit>> OverlappingUnits;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	UAttackComponent* AttackComponent;
+	
+	/** Altenative to UE collision detection, close units are "damped" away like a spring is in between*/
+	UFUNCTION(BlueprintCallable, Category = "Overlap")
+	void DampOverlappingUnits(float DeltaTime);
 
-#pragma region State_Machine
+	/** Returns closest enemy, its distance and a found flag */
+	UFUNCTION(BlueprintCallable, Category = "Combat|Query")
+	FClosestEnemyResult GetClosestEnemyUnit() const;
+
+#pragma region Events
+
+	/** Called when another actor starts overlapping this actor */
+	virtual void NotifyActorBeginOverlap(AActor* OtherActor) override;
+
+	/** Called when another actor stops overlapping this actor */
+	virtual void NotifyActorEndOverlap(AActor* OtherActor) override;
 
 	virtual void Tick(float DeltaSeconds) override;
 
@@ -64,9 +101,6 @@ public:
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere)
 		EFaction FactionId;
-
-
-
 
 	UFUNCTION(BlueprintCallable)
 	void SetUnitState(EUnitMakroState makroState, EUnitMikroState mikroState);

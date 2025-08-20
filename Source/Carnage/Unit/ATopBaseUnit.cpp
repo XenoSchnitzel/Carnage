@@ -1,8 +1,9 @@
-// Copyright Epic Games, Inc. All Rights Reserved.
+﻿// Copyright Epic Games, Inc. All Rights Reserved.
 #include "ATopBaseUnit.h"
 #include "../GameState/ACarnageGameState.h"
 
 #include "../Logging/StateLogger.h"
+#include "../SpatialStorage/RTSUnitManagerComponent.h"
 
 ATopBaseUnit::ATopBaseUnit()
 {
@@ -134,3 +135,101 @@ void ATopBaseUnit::Tick(float DeltaSeconds)
 }
 
 #pragma endregion
+
+// --- Returns closest enemy unit, distance and a success flag (matches BP flow) ---
+FClosestEnemyResult ATopBaseUnit::GetClosestEnemyUnit() const
+{
+	FClosestEnemyResult Result; // defaults: nullptr / 0 / false
+
+	// Get GameState and the spatial manager
+	const UWorld* World = GetWorld();
+	const ACarnageGameState* GS = World ? World->GetGameState<ACarnageGameState>() : nullptr;
+	if (!GS || !GS->mSpatialStorageManager)
+	{
+		return Result; // manager missing
+	}
+
+	// Build 2D position from our actor location (BP feeds X/Y to the manager)
+	const FVector SelfLoc3D = GetActorLocation();
+	const FVector2D SelfLoc2D(SelfLoc3D.X, SelfLoc3D.Y);
+
+	// Ask the manager for the closest enemy actor using our faction
+	AActor* FoundActor = GS->mSpatialStorageManager->GetClosestEnemyUnit(SelfLoc2D, FactionId);
+	if (!FoundActor)
+	{
+		return Result; // none found
+	}
+
+	// Cast to our base unit class (BP cast to BP_BaseUnit_C)
+	if (ATopBaseUnit* FoundUnit = Cast<ATopBaseUnit>(FoundActor))
+	{
+		Result.ClosestEnemy = FoundUnit;
+
+		// BP computes VSize(EnemyLoc - SelfLoc) → 3D distance
+		const float Dist = FVector::Dist(FoundUnit->GetActorLocation(), SelfLoc3D);
+		Result.ClosestEnemyDistance = Dist;
+
+		Result.EnemyFound = true;
+	}
+
+	return Result;
+}
+
+// --- Begin overlap: add to set (O(1)) ---
+void ATopBaseUnit::NotifyActorBeginOverlap(AActor* OtherActor)
+{
+	Super::NotifyActorBeginOverlap(OtherActor);
+
+	if (OtherActor && OtherActor != this)
+	{
+		if (ATopBaseUnit* OtherUnit = Cast<ATopBaseUnit>(OtherActor))
+		{
+			OverlappingUnits.Add(OtherUnit);
+		}
+	}
+}
+
+// --- End overlap: remove from set (O(1)) ---
+void ATopBaseUnit::NotifyActorEndOverlap(AActor* OtherActor)
+{
+	Super::NotifyActorEndOverlap(OtherActor);
+
+	if (OtherActor && OtherActor != this)
+	{
+		if (ATopBaseUnit* OtherUnit = Cast<ATopBaseUnit>(OtherActor))
+		{
+			OverlappingUnits.Remove(OtherUnit);
+		}
+	}
+}
+
+void ATopBaseUnit::DampOverlappingUnits(float DeltaTime)
+{
+	// Initially no damping
+	FVector OverlapCorrectionVector = FVector::ZeroVector;
+
+	const FVector SelfLoc = GetActorLocation();
+
+	for (const TWeakObjectPtr<ATopBaseUnit>& WeakOther : OverlappingUnits)
+	{
+		ATopBaseUnit* Other = WeakOther.Get();
+		if (!Other || Other == this) continue;
+
+		const FVector OtherLoc = Other->GetActorLocation();
+		const FVector Delta = SelfLoc - OtherLoc;        // Subtract_VectorVector
+		const float  Dist = Delta.Size();              // VSize
+
+		if (Dist <= KINDA_SMALL_NUMBER) continue;
+
+		// s = (1 / (0.003 * Dist)) * DeltaTime   (genau wie deine Multiply/Divide-Kette)
+		const float Scale = (DeltaTime) / (0.003f * Dist);
+
+		// Multiply_VectorVector mit (Scale,Scale,Scale) == skalar * Delta
+		OverlapCorrectionVector += Delta * Scale;
+	}
+
+	// 2) NewLocation = SelfLoc + OverlapCorrectionVector  und SetActorLocation(bSweep=true)
+	const FVector NewLoc = SelfLoc + OverlapCorrectionVector;
+	FHitResult SweepHit;
+	SetActorLocation(NewLoc, /*bSweep*/ true, &SweepHit, ETeleportType::None);
+}
