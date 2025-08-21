@@ -217,14 +217,17 @@ EUnitMikroState ATopBaseUnit::GetUnitMikroState() const
 /*** You only should set two states with this at once, also inside the class*/
 void ATopBaseUnit::SetUnitState(EUnitMakroState makroState, EUnitMikroState mikroState)
 {
-	ECurrentUnitMakroState = makroState;
-	ECurrentUnitMikroState = mikroState;
+	if (ECurrentUnitMakroState != EUnitMakroState::UnitMakroState_Dead)
+	{
+		ECurrentUnitMakroState = makroState;
+		ECurrentUnitMikroState = mikroState;
 
-	p_fStateTimeCounter = 0.0f;
+		p_fStateTimeCounter = 0.0f;
 
-	STATE_LOG(Log, "SetUnitState() Makro: %s, Mikro %s",
-		*UEnum::GetValueAsString(ECurrentUnitMakroState),
-		*UEnum::GetValueAsString(ECurrentUnitMikroState));
+		STATE_LOG(Log, "SetUnitState() Makro: %s, Mikro %s",
+			*UEnum::GetValueAsString(ECurrentUnitMakroState),
+			*UEnum::GetValueAsString(ECurrentUnitMikroState));
+	}
 }
 
 
@@ -508,11 +511,12 @@ void ATopBaseUnit::OnMoveRequestFinished(FAIRequestID /*RequestID*/, const FPath
 		}
 		AI->StopMovement();
 	}
-
-	// Return to idle (you can branch on Result.Code to chain into an attack on success)
-	// e.g. if (Result.Code == EPathFollowingResult::Success) { ... }
-	SetUnitState(EUnitMakroState::UnitMakroState_Idle,
-		EUnitMikroState::UnitMikroState_Idle_Chilling);
+	if (ECurrentUnitMakroState != EUnitMakroState::UnitMakroState_Dead) {
+		// Return to idle (you can branch on Result.Code to chain into an attack on success)
+// e.g. if (Result.Code == EPathFollowingResult::Success) { ... }
+		SetUnitState(EUnitMakroState::UnitMakroState_Idle,
+			EUnitMikroState::UnitMikroState_Idle_Chilling);
+	}
 }
 
 
