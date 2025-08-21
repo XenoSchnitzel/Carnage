@@ -9,6 +9,10 @@
 
 #include "ATopBaseUnit.generated.h"
 
+// ADD (above the class, after includes)
+struct FAIRequestID;
+struct FPathFollowingResult;
+
 // Delegate that broadcasts when this unit dies
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnDeath);
 
@@ -46,6 +50,7 @@ class ATopBaseUnit : public ACharacter
 	/** Clear references, remove delegates, ...*/
 	void InvalidateTarget();
 
+
 #pragma region State_Machine
 
 	//State changes always set this counter to zero
@@ -61,18 +66,27 @@ class ATopBaseUnit : public ACharacter
 	void AttackCooldownStartState(float DeltaSeconds);
 	void AttackCooldownPeformingState(float DeltaSeconds);
 
+	void IdleChillingState(float DeltaSeconds);
+	void IdleCooldownState(float DeltaSeconds);
 
-	//TODO: implement this a general timer for switching states: bool StateOverDuration(State);
+
+	//TODO: Add a helper function that checks times for switching states: bool StateOverDuration(State);
 
 #pragma endregion
 
 protected:
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Selection")
+	UPROPERTY(BlueprintGetter = IsSelected, meta = (AllowPrivateAccess = "true"))
 	bool bIsSelected = false;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Selection")
+	UFUNCTION(BlueprintPure, Category = "Selection")
+	bool IsSelected() const { return bIsSelected; }
+
+	UPROPERTY(BlueprintGetter = IsPreSelected, meta = (AllowPrivateAccess = "true"))
 	bool bIsPreSelected = false;
+
+	UFUNCTION(BlueprintPure, Category = "Selection")
+	bool IsPreSelected() const { return bIsPreSelected; }
 
 	// --- Fast set of overlapping units (O(1) add/remove, order not guaranteed) ---
 	UPROPERTY(VisibleAnywhere, Category = "Overlap")
@@ -90,6 +104,16 @@ protected:
 	FClosestEnemyResult GetClosestEnemyUnit() const;
 
 #pragma region Events
+
+private:
+
+	/** Called when the path following component finishes this move request. */
+	void OnMoveRequestFinished(struct FAIRequestID RequestID, const FPathFollowingResult& Result);
+
+public:
+	/** Move towards the nearest enemy using AIController::MoveToActor (recommended C++ path). */
+	UFUNCTION(BlueprintCallable, Category = "Unit|Movement")
+	void MoveToNearestEnemy();
 
 	/** Event that gets fired when this unit dies */
 	UPROPERTY(BlueprintAssignable, Category = "Unit|Combat")
@@ -156,7 +180,6 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Unit|Movement")
 	void StopCommand();
 
-	// von BP UND C++ überschreibbar
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Unit|Movement")
 	void MoveToCommand(const FVector& NewPos);
 	virtual void MoveToCommand_Implementation(const FVector& NewPos); 
@@ -171,5 +194,13 @@ public:
 
 	UFUNCTION(BlueprintGetter, Category = "__State")
 	EUnitMikroState GetUnitMikroState() const;
+
+#pragma region helpers
+
+	/** Tries to auto attack the closest enemy if within minimum range. Returns true if attack started */
+	UFUNCTION(BlueprintCallable, Category = "Unit|Combat")
+	bool TryAutoAttackIfTargetIsWithinMinimumRange();
+
+#pragma endregion
 	
 };

@@ -1,17 +1,19 @@
-﻿// Copyright Epic Games, Inc. All Rights Reserved.
-#include "ATopBaseUnit.h"
+﻿#include "ATopBaseUnit.h"
 #include "../GameState/ACarnageGameState.h"
 
 #include "Kismet/GameplayStatics.h"
 #include "Blueprint/AIBlueprintHelperLibrary.h"
 #include "AIController.h"
 #include "Tasks/AITask_MoveTo.h"
+#include "AITypes.h"  // for FAIRequestID
 
-#include "Navigation/PathFollowingComponent.h"   // für EPath
+#include "Navigation/PathFollowingComponent.h"   // for EPath
 
 #include "../Logging/StateLogger.h"
 #include "../SpatialStorage/RTSUnitManagerComponent.h"
 #include "EUnitStates.h"
+
+
 
 #pragma region Construction
 
@@ -30,8 +32,6 @@ void ATopBaseUnit::BeginPlay()
 	r.StateSystem.Log 0   // disable logs */ 
 	
 	Super::BeginPlay();
-
-
 
 	if (ACarnageGameState* GameState = Cast<ACarnageGameState>(GetWorld()->GetGameState()))
 	{
@@ -68,15 +68,16 @@ void ATopBaseUnit::DePreSelectUnit_Implementation()
 	bIsPreSelected = false;
 }
 
-
 void ATopBaseUnit::OnMyDeath_Implementation()
 {
 	APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0);
 
 	if (PC)
 	{
-		// Wir rufen die BP-Funktion dynamisch auf, damit kein C++-Controller nötig ist.
-		// Signatur in BP: Event UnitDeath( BP_BaseUnit* Unit )
+		//TODO: This came by Chatty during C++ conversion and needs to be changed into either
+		//	a) An interface call
+		//  b) Partial transfer of the Player controller into C++ as well
+
 		static const FName FuncName(TEXT("Event UnitDeath"));
 		if (UFunction* Func = PC->FindFunction(FuncName))
 		{
@@ -92,7 +93,6 @@ void ATopBaseUnit::OnMyDeath_Implementation()
 		}
 	}
 
-	// 3) Danach eigenes DeSelect() wie im Blueprint
 	DeSelectUnit();
 }
 
@@ -101,7 +101,6 @@ void ATopBaseUnit::BroadcastOnDeath()
 	OnDeath.Broadcast();
 }
 
-// --- Begin overlap: add to set (O(1)) ---
 void ATopBaseUnit::NotifyActorBeginOverlap(AActor* OtherActor)
 {
 	Super::NotifyActorBeginOverlap(OtherActor);
@@ -115,7 +114,6 @@ void ATopBaseUnit::NotifyActorBeginOverlap(AActor* OtherActor)
 	}
 }
 
-// --- End overlap: remove from set (O(1)) ---
 void ATopBaseUnit::NotifyActorEndOverlap(AActor* OtherActor)
 {
 	Super::NotifyActorEndOverlap(OtherActor);
@@ -151,7 +149,7 @@ void ATopBaseUnit::StartAttackCommand_Implementation(ATopBaseUnit* attackTarget)
 	// Take in new target
 	AttackTarget = attackTarget;
 
-	// Hang onto its death event, in order to scan for new targets eventually or fall back to 
+	// Hang onto its death event, in order to invalidate, scan for new targets eventually or fall back to idle
 	attackTarget->OnDeath.AddDynamic(this, &ATopBaseUnit::OnAttackTargetDeath);
 	
 }
@@ -165,8 +163,7 @@ void ATopBaseUnit::StopCommand()
 
 void ATopBaseUnit::MoveToCommand_Implementation(const FVector &newPos)
 {
-	//A movement start invalidates any attack targets
-	AttackTarget = nullptr;
+	InvalidateTarget();
 
 	SetUnitState(
 		EUnitMakroState::UnitMakroState_Moving,
@@ -185,7 +182,6 @@ void ATopBaseUnit::MoveToCommand_Implementation(const FVector &newPos)
 		AI->StopMovement();
 	}
 
-	//Now actually initiate moving task
 	UAITask_MoveTo* Task = UAITask_MoveTo::AIMoveTo(
 		/* AI Controller*/AI,
 		/* Goal Location*/newPos,
@@ -198,6 +194,7 @@ void ATopBaseUnit::MoveToCommand_Implementation(const FVector &newPos)
 		/* Use continuos goal tracking*/false,
 		/* Projekt goal on navigation*/EAIOptionFlag::Enable);
 
+	//Now actually initiate moving task
 	Task->ReadyForActivation();
 
 }
@@ -217,6 +214,7 @@ EUnitMikroState ATopBaseUnit::GetUnitMikroState() const
 }
 
 
+/*** You only should set two states with this at once, also inside the class*/
 void ATopBaseUnit::SetUnitState(EUnitMakroState makroState, EUnitMikroState mikroState)
 {
 	ECurrentUnitMakroState = makroState;
@@ -232,10 +230,43 @@ void ATopBaseUnit::SetUnitState(EUnitMakroState makroState, EUnitMikroState mikr
 
 void ATopBaseUnit::IdleState(float DeltaSeconds)
 {
+	switch (ECurrentUnitMikroState) {
+	case EUnitMikroState::UnitMikroState_Idle_Chilling:
+		IdleChillingState(DeltaSeconds);
+		break;
+	case EUnitMikroState::UnitMikroState_Idle_Cooldown:
+		IdleCooldownState(DeltaSeconds);
+		break;
+	}
+}
+
+void ATopBaseUnit::IdleChillingState(float DeltaSeconds) {
+	bool AttackModeSuccesful = TryAutoAttackIfTargetIsWithinMinimumRange();
+
+	//TODO: Change this into a real AI Control for non humans player, that runs outside of state system
+	if (!AttackModeSuccesful) {
+		if (ACarnageGameState* GS = Cast<ACarnageGameState>(GetWorld()->GetGameState()))
+		{
+			if (UFactionState* FS = GS->GetFactionById(this->FactionId))
+			{
+				if (FS->ePlayerType == EPlayerType::Computer)
+				{
+					//In case the unit is computer controlled and it cant auto attack
+					//it shall move close enough to the nearest enemy in order to be able to auto attack
+					MoveToNearestEnemy();
+				}
+			}
+		}
+	}
+}
+
+void ATopBaseUnit::IdleCooldownState(float DeltaSeconds) {
+
 }
 
 void ATopBaseUnit::MovingState(float DeltaSeconds)
 {
+	
 }
 
 void ATopBaseUnit::AttackingState(float DeltaSeconds)
@@ -312,6 +343,29 @@ void ATopBaseUnit::Tick(float DeltaTime)
 
 #pragma region helpers
 
+bool ATopBaseUnit::TryAutoAttackIfTargetIsWithinMinimumRange()
+{
+	// Query closest enemy
+	const FClosestEnemyResult Closest = GetClosestEnemyUnit();
+
+	// Validate enemy result
+	if (!Closest.EnemyFound || !IsValid(Closest.ClosestEnemy))
+	{
+		return false;
+	}
+
+	// Check if within min range
+	if (Closest.ClosestEnemyDistance < AttackComponent->MinRange)
+	{
+		// Start an attack command on this enemy
+		StartAttackCommand(Closest.ClosestEnemy);
+		return true;
+	}
+
+	// Out of range -> no attack started
+	return false;
+}
+
 void ATopBaseUnit::InvalidateTarget()
 {
 
@@ -328,7 +382,7 @@ void ATopBaseUnit::InvalidateTarget()
 
 }
 
-// --- Returns closest enemy unit, distance and a success flag (matches BP flow) ---
+// --- Returns closest enemy unit, distance and a success flag ---
 FClosestEnemyResult ATopBaseUnit::GetClosestEnemyUnit() const
 {
 	FClosestEnemyResult Result; // defaults: nullptr / 0 / false
@@ -341,7 +395,7 @@ FClosestEnemyResult ATopBaseUnit::GetClosestEnemyUnit() const
 		return Result; // manager missing
 	}
 
-	// Build 2D position from our actor location (BP feeds X/Y to the manager)
+	// Build 2D position from our actor location 
 	const FVector SelfLoc3D = GetActorLocation();
 	const FVector2D SelfLoc2D(SelfLoc3D.X, SelfLoc3D.Y);
 
@@ -349,17 +403,15 @@ FClosestEnemyResult ATopBaseUnit::GetClosestEnemyUnit() const
 	AActor* FoundActor = GS->mSpatialStorageManager->GetClosestEnemyUnit(SelfLoc2D, FactionId);
 	if (!FoundActor)
 	{
-		return Result; // none found
+		return Result;
 	}
 
-	// Cast to our base unit class (BP cast to BP_BaseUnit_C)
 	if (ATopBaseUnit* FoundUnit = Cast<ATopBaseUnit>(FoundActor))
 	{
 		Result.ClosestEnemy = FoundUnit;
 
-		// BP computes VSize(EnemyLoc - SelfLoc) → 3D distance
-		const float Dist = FVector::Dist(FoundUnit->GetActorLocation(), SelfLoc3D);
-		Result.ClosestEnemyDistance = Dist;
+		const float Distance = FVector::Dist(FoundUnit->GetActorLocation(), SelfLoc3D);
+		Result.ClosestEnemyDistance = Distance;
 
 		Result.EnemyFound = true;
 	}
@@ -367,7 +419,10 @@ FClosestEnemyResult ATopBaseUnit::GetClosestEnemyUnit() const
 	return Result;
 }
 
-
+/*** Manual collision detection that takes all units that are intruding our 
+Capsule and pushes them out with a force. The deeper the intrusion the stronger
+the force pushing out is, so take care while spawning units close to each other, unless you want them
+to fly to the moon.*/
 void ATopBaseUnit::DampOverlappingUnits(float DeltaTime)
 {
 	// Initially no damping
@@ -398,6 +453,68 @@ void ATopBaseUnit::DampOverlappingUnits(float DeltaTime)
 	FHitResult SweepHit;
 	SetActorLocation(NewLoc, /*bSweep*/ true, &SweepHit, ETeleportType::None);
 }
+
+void ATopBaseUnit::MoveToNearestEnemy()
+{
+	AAIController* AI = UAIBlueprintHelperLibrary::GetAIController(this);
+	if (!AI) { return; }
+
+	const FClosestEnemyResult Closest = GetClosestEnemyUnit();
+	if (!Closest.EnemyFound || !IsValid(Closest.ClosestEnemy)) { return; }
+
+	// Stop any current movement before issuing a new request (mirrors BP)
+	AI->StopMovement();
+
+	// Enter moving state
+	SetUnitState(EUnitMakroState::UnitMakroState_Moving,
+		EUnitMikroState::UnitMikroState_Move_Direct_Move);
+
+	// (Re)bind finish handler on the path following component
+	if (UPathFollowingComponent* PF = AI->GetPathFollowingComponent())
+	{
+		PF->OnRequestFinished.RemoveAll(this); // avoid duplicate bindings
+		PF->OnRequestFinished.AddUObject(this, &ATopBaseUnit::OnMoveRequestFinished);
+	}
+
+	// Issue the move. This mirrors the BP pin setup: AcceptanceRadius=150, StopOnOverlap=false,
+	// UsePathfinding=true, CanStrafe=false, AllowPartialPath=true.
+	const EPathFollowingRequestResult::Type MoveRes =
+		AI->MoveToActor(/*Goal*/ Closest.ClosestEnemy,
+			/*AcceptanceRadius*/ 150.f,
+			/*bStopOnOverlap*/   false,
+			/*bUsePathfinding*/  true,
+			/*bCanStrafe*/       false,
+			/*FilterClass*/      nullptr,
+			/*bAllowPartialPath*/true);
+
+	// Immediate failure (no path etc.) -> mimic OnRequestFailed behavior
+	if (MoveRes == EPathFollowingRequestResult::Failed)
+	{
+		AI->StopMovement();
+		SetUnitState(EUnitMakroState::UnitMakroState_Idle,
+			EUnitMikroState::UnitMikroState_Idle_Chilling);
+		return;
+	}
+}
+
+void ATopBaseUnit::OnMoveRequestFinished(FAIRequestID /*RequestID*/, const FPathFollowingResult& Result)
+{
+	// Always stop residual movement
+	if (AAIController* AI = UAIBlueprintHelperLibrary::GetAIController(this))
+	{
+		if (UPathFollowingComponent* PF = AI->GetPathFollowingComponent())
+		{
+			PF->OnRequestFinished.RemoveAll(this); // unbind to be safe
+		}
+		AI->StopMovement();
+	}
+
+	// Return to idle (you can branch on Result.Code to chain into an attack on success)
+	// e.g. if (Result.Code == EPathFollowingResult::Success) { ... }
+	SetUnitState(EUnitMakroState::UnitMakroState_Idle,
+		EUnitMikroState::UnitMikroState_Idle_Chilling);
+}
+
 
 #pragma endregion
 

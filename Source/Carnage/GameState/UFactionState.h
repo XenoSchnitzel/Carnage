@@ -5,6 +5,8 @@
 #include "ProductionOrder.h"
 #include "enum/EFaction.h"
 #include "enum/EAlliance.h"
+#include "enum/EPlayerType.h"
+
 #include "../SpatialStorage/RTSUnitManagerComponent.h"
 
 #include "UFactionState.generated.h"
@@ -59,6 +61,10 @@ protected:
 
 
 public:
+
+
+    UPROPERTY(BlueprintReadWrite, EditAnywhere)
+    EPlayerType ePlayerType;
 
 
     EAlliance GetAllianceId() const;
