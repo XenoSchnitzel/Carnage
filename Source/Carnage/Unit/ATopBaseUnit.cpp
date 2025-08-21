@@ -2,6 +2,7 @@
 #include "../GameState/ACarnageGameState.h"
 
 #include "Kismet/GameplayStatics.h"
+#include "Kismet/KismetMathLibrary.h"
 #include "Blueprint/AIBlueprintHelperLibrary.h"
 #include "AIController.h"
 #include "Tasks/AITask_MoveTo.h"
@@ -269,7 +270,19 @@ void ATopBaseUnit::IdleCooldownState(float DeltaSeconds) {
 
 void ATopBaseUnit::MovingState(float DeltaSeconds)
 {
-	
+	// Access GameState and cast to ACarnageGameState
+	if (UWorld* World = GetWorld())
+	{
+		if (ACarnageGameState* GS = World->GetGameState<ACarnageGameState>())
+		{
+			//Get Actor Locatoin
+			FVector location = this->GetActorLocation();
+			FVector2D Pos2D = FVector2D(location.X, location.Y);
+
+			GS->mSpatialStorageManager->UpdateUnit(this, Pos2D);
+
+		}
+	}
 }
 
 void ATopBaseUnit::AttackingState(float DeltaSeconds)
@@ -299,6 +312,25 @@ void ATopBaseUnit::AttackingState(float DeltaSeconds)
 
 void ATopBaseUnit::AttackRotateState(float DeltaSeconds)
 {
+	// If target is not valid -> back to idle
+	if (!AttackTarget || !IsValid(AttackTarget))
+	{
+		SetUnitState(EUnitMakroState::UnitMakroState_Idle,
+			EUnitMikroState::UnitMikroState_Idle_Chilling);
+		return;
+	}
+
+	// Already facing target?
+	if (IsFacingAttackTarget())
+	{
+		SetUnitState(EUnitMakroState::UnitMakroState_Attacking,
+			EUnitMikroState::UnitMikroState_Attack_Start);
+	}
+	else
+	{
+		// Rotate until facing
+		RotateToAttackTarget(DeltaSeconds);
+	}
 }
 
 void ATopBaseUnit::AttackStartState(float DeltaSeconds)
@@ -518,6 +550,60 @@ void ATopBaseUnit::OnMoveRequestFinished(FAIRequestID /*RequestID*/, const FPath
 			EUnitMikroState::UnitMikroState_Idle_Chilling);
 	}
 }
+
+bool ATopBaseUnit::IsFacingAttackTarget() const
+{
+	// Validate & cast AttackTarget to our own type
+	ATopBaseUnit* TargetUnit = Cast<ATopBaseUnit>(AttackTarget);
+	if (!TargetUnit || !IsValid(TargetUnit))
+	{
+		return false;
+	}
+
+	// World positions
+	const FVector SelfLoc = GetActorLocation();
+	const FVector TargetLoc = TargetUnit->GetActorLocation();
+
+	// Desired look direction in XY
+	const FVector2D Desired2D = FVector2D((TargetLoc - SelfLoc).GetSafeNormal2D());
+
+	// Current forward direction in XY
+	const FVector   Forward3D = GetActorForwardVector();
+	const FVector2D Forward2D = FVector2D(Forward3D.X, Forward3D.Y).GetSafeNormal();
+
+	// Dot-product threshold as in BP
+	const double Dot = FVector2D::DotProduct(Desired2D, Forward2D);
+	return Dot >= 0.995;
+}
+
+void ATopBaseUnit::RotateToAttackTarget(float DeltaTime)
+{
+	// Validate & cast attack target
+	ATopBaseUnit* TargetUnit = Cast<ATopBaseUnit>(AttackTarget);
+	if (!TargetUnit || !IsValid(TargetUnit))
+	{
+		return;
+	}
+
+	// Current & target positions
+	const FVector SelfLoc = GetActorLocation();
+	const FVector TargetLoc = TargetUnit->GetActorLocation();
+
+	// Desired look-at rotation
+	const FRotator LookAtRot = UKismetMathLibrary::FindLookAtRotation(SelfLoc, TargetLoc);
+
+	// Current rotation
+	const FRotator CurrentRot = GetActorRotation();
+
+	// Interpolate smoothly (InterpSpeed = 10 as in BP)
+	const FRotator NewRot = FMath::RInterpTo(CurrentRot, LookAtRot, DeltaTime, 10.f);
+
+	// Apply to actor
+	SetActorRotation(NewRot);
+}
+
+
+
 
 
 #pragma endregion

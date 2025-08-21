@@ -201,6 +201,14 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Unit|Combat")
 	bool TryAutoAttackIfTargetIsWithinMinimumRange();
 
+	/** True if our current facing (2D) is almost pointing at AttackTarget (dot >= 0.995) */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Unit|Combat")
+	bool IsFacingAttackTarget() const;
+
+	/** Rotate smoothly towards current AttackTarget. */
+	UFUNCTION(BlueprintCallable, Category = "Unit|Combat")
+	void RotateToAttackTarget(float DeltaTime);
+
 #pragma endregion
 	
 };
