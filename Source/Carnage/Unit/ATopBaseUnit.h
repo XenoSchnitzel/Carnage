@@ -49,7 +49,7 @@ class ATopBaseUnit : public ACharacter
 	EUnitMikroState ECurrentUnitMikroState;
 
 	/** Clear references, remove delegates, ...*/
-	void InvalidateTarget();
+	void InvalidateAttackTarget();
 
 
 #pragma region State_Machine

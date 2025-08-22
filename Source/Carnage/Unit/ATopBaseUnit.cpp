@@ -74,11 +74,6 @@ void ATopBaseUnit::OnHit_Implementation(ATopBaseUnit* Attacker)
 
 		SetActorEnableCollision(false);
 
-		if (AAIController* AI = UAIBlueprintHelperLibrary::GetAIController(this))
-		{
-			AI->StopMovement();
-		}
-
 		OnMyDeath();
 		BroadcastOnDeath();
 	}
@@ -180,7 +175,7 @@ void ATopBaseUnit::StartAttackCommand_Implementation(ATopBaseUnit* attackTarget)
 	SetUnitState(EUnitMakroState::UnitMakroState_Attacking,
 		EUnitMikroState::UnitMikroState_Attack_Rotate);
 
-	InvalidateTarget();
+	InvalidateAttackTarget();
 
 	// Take in new target
 	AttackTarget = attackTarget;
@@ -192,31 +187,17 @@ void ATopBaseUnit::StartAttackCommand_Implementation(ATopBaseUnit* attackTarget)
 
 void ATopBaseUnit::StopCommand()
 {
-	InvalidateTarget();
-
 	SetUnitState(EUnitMakroState::UnitMakroState_Idle, EUnitMikroState::UnitMikroState_Idle_Chilling);
 }
 
 void ATopBaseUnit::MoveToCommand_Implementation(const FVector &newPos)
 {
-	InvalidateTarget();
-
 	SetUnitState(
 		EUnitMakroState::UnitMakroState_Moving,
 		EUnitMikroState::UnitMikroState_Move_Direct_Move);
 
 	AAIController* AI = UAIBlueprintHelperLibrary::GetAIController(this);
 	if (!AI) { return; }
-
-	// If you don't terminate an ongoing movement, you
-	// run into trouble with the AI trying to reach
-	// all instructed positions
-	const auto MoveStatus = AI->GetMoveStatus();
-	if (MoveStatus == EPathFollowingStatus::Moving
-		|| MoveStatus == EPathFollowingStatus::Type::Moving)
-	{
-		AI->StopMovement();
-	}
 
 	UAITask_MoveTo* Task = UAITask_MoveTo::AIMoveTo(
 		/* AI Controller*/AI,
@@ -230,7 +211,7 @@ void ATopBaseUnit::MoveToCommand_Implementation(const FVector &newPos)
 		/* Use continuos goal tracking*/false,
 		/* Projekt goal on navigation*/EAIOptionFlag::Enable);
 
-	//Now actually initiate moving task
+	//Actually initiate moving task
 	Task->ReadyForActivation();
 
 }
@@ -251,19 +232,53 @@ EUnitMikroState ATopBaseUnit::GetUnitMikroState() const
 
 
 /*** You only should set two states with this at once, also inside the class*/
-void ATopBaseUnit::SetUnitState(EUnitMakroState makroState, EUnitMikroState mikroState)
+void ATopBaseUnit::SetUnitState(EUnitMakroState newMakroState, EUnitMikroState newMikroState)
 {
-	if (ECurrentUnitMakroState != EUnitMakroState::UnitMakroState_Dead)
+	//Dependant on the unit state we do certain cleanups, so we dont have
+	//to think about them from the outside in any circumstance
+
+	switch (ECurrentUnitMakroState)
 	{
-		ECurrentUnitMakroState = makroState;
-		ECurrentUnitMikroState = mikroState;
+		case EUnitMakroState::UnitMakroState_Moving:
+		{
+			AAIController* AI = UAIBlueprintHelperLibrary::GetAIController(this);
+			if (!AI) break;
+			// If you don't terminate an ongoing movement, you
+			// run into trouble with the AI trying to reach
+			// all instructed positions
+			const EPathFollowingStatus::Type MoveStatus = AI->GetMoveStatus();
+			if (MoveStatus == EPathFollowingStatus::Moving)
+			{
+				AI->StopMovement();
+			}
+			break;
+		}
 
-		p_fStateTimeCounter = 0.0f;
+		case EUnitMakroState::UnitMakroState_Attacking:
+		{
+			if (newMakroState != EUnitMakroState::UnitMakroState_Attacking)
+			{
+				//Get rid of my attack target when NOT attacking anymore
+				InvalidateAttackTarget();
+			}
+			break;
+		}
 
-		STATE_LOG(Log, "SetUnitState() Makro: %s, Mikro %s",
-			*UEnum::GetValueAsString(ECurrentUnitMakroState),
-			*UEnum::GetValueAsString(ECurrentUnitMikroState));
+		case EUnitMakroState::UnitMakroState_Dead:
+			return;
+
+		default:
+			break;
 	}
+
+	ECurrentUnitMakroState = newMakroState;
+	ECurrentUnitMikroState = newMikroState;
+
+	p_fStateTimeCounter = 0.0f;
+
+	STATE_LOG(Log, "SetUnitState() Makro: %s, Mikro %s",
+		*UEnum::GetValueAsString(ECurrentUnitMakroState),
+		*UEnum::GetValueAsString(ECurrentUnitMikroState));	
 }
 
 
@@ -436,7 +451,7 @@ bool ATopBaseUnit::TryAutoAttackIfTargetIsWithinMinimumRange()
 	return false;
 }
 
-void ATopBaseUnit::InvalidateTarget()
+void ATopBaseUnit::InvalidateAttackTarget()
 {
 
 	ATopBaseUnit* TargetUnit = Cast<ATopBaseUnit>(AttackTarget);
@@ -532,9 +547,6 @@ void ATopBaseUnit::MoveToNearestEnemy()
 	const FClosestEnemyResult Closest = GetClosestEnemyUnit();
 	if (!Closest.EnemyFound || !IsValid(Closest.ClosestEnemy)) { return; }
 
-	// Stop any current movement before issuing a new request (mirrors BP)
-	AI->StopMovement();
-
 	// Enter moving state
 	SetUnitState(EUnitMakroState::UnitMakroState_Moving,
 		EUnitMikroState::UnitMikroState_Move_Direct_Move);
@@ -560,7 +572,6 @@ void ATopBaseUnit::MoveToNearestEnemy()
 	// Immediate failure (no path etc.) -> mimic OnRequestFailed behavior
 	if (MoveRes == EPathFollowingRequestResult::Failed)
 	{
-		AI->StopMovement();
 		SetUnitState(EUnitMakroState::UnitMakroState_Idle,
 			EUnitMikroState::UnitMikroState_Idle_Chilling);
 		return;
@@ -578,12 +589,9 @@ void ATopBaseUnit::OnMoveRequestFinished(FAIRequestID /*RequestID*/, const FPath
 		}
 		AI->StopMovement();
 	}
-	if (ECurrentUnitMakroState != EUnitMakroState::UnitMakroState_Dead) {
-		// Return to idle (you can branch on Result.Code to chain into an attack on success)
-// e.g. if (Result.Code == EPathFollowingResult::Success) { ... }
-		SetUnitState(EUnitMakroState::UnitMakroState_Idle,
-			EUnitMikroState::UnitMikroState_Idle_Chilling);
-	}
+
+	SetUnitState(EUnitMakroState::UnitMakroState_Idle,
+		EUnitMikroState::UnitMikroState_Idle_Chilling);
 }
 
 bool ATopBaseUnit::IsFacingAttackTarget() const
