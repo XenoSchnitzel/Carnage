@@ -21,6 +21,7 @@
 ATopBaseUnit::ATopBaseUnit()
 {
 	AttackComponent = CreateDefaultSubobject<UAttackComponent>(TEXT("AttackComponent"));
+	HitpointComponent = CreateDefaultSubobject<UHitpointComponent>(TEXT("HitpointComponent"));
 }
 
 void ATopBaseUnit::BeginPlay()
@@ -48,6 +49,40 @@ void ATopBaseUnit::BeginPlay()
 #pragma endregion
 
 #pragma region events
+
+void ATopBaseUnit::OnHit_Implementation(ATopBaseUnit* Attacker)
+{
+	// Invariants by design:
+	// - Attacker != nullptr
+	// - Attacker->AttackComponent != nullptr
+	// - this->HitpointComponent != nullptr
+
+	const float Damage = Attacker->AttackComponent->Value;
+
+	// Apply damage directly to our C++ health component
+	HitpointComponent->Health -= Damage;
+	const float NewHealth = HitpointComponent->Health;
+
+	// Optional BP hook (VFX/SFX/UI)
+	OnAfterDamageApplied(NewHealth);
+
+	// Handle death transition
+	if (NewHealth <= 0.f)
+	{
+		SetUnitState(EUnitMakroState::UnitMakroState_Dead,
+			EUnitMikroState::UnitMikroState_NoSubState);
+
+		SetActorEnableCollision(false);
+
+		if (AAIController* AI = UAIBlueprintHelperLibrary::GetAIController(this))
+		{
+			AI->StopMovement();
+		}
+
+		OnMyDeath();
+		BroadcastOnDeath();
+	}
+}
 
 void ATopBaseUnit::SelectUnit_Implementation()
 {

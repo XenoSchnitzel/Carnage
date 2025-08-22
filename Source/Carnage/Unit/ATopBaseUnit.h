@@ -5,6 +5,7 @@
 #include "../GameState/enum/EFaction.h"
 #include "../GameState/enum/EAlliance.h"
 #include "UAttackComponent.h"
+#include "UHitpointComponent.h"
 #include "EUnitStates.h"
 
 #include "ATopBaseUnit.generated.h"
@@ -95,6 +96,9 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	UAttackComponent* AttackComponent;
 	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	UHitpointComponent* HitpointComponent;
+
 	/** Altenative to UE collision detection, close units are "damped" away like a spring is in between*/
 	UFUNCTION(BlueprintCallable, Category = "Overlap")
 	void DampOverlappingUnits(float DeltaTime);
@@ -125,6 +129,13 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Events")
 	void BroadcastOnDeath();
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Unit|Combat")
+	void OnHit(ATopBaseUnit* Attacker);
+	virtual void OnHit_Implementation(ATopBaseUnit* Attacker);
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Unit|Combat")
+	void OnAfterDamageApplied(float NewHealth);
 
 
 	/** Called when another actor starts overlapping this actor */
