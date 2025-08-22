@@ -441,21 +441,19 @@ bool ATopBaseUnit::TryToAttackTargetSuccessful() {
 	//   * an attack vector pointing towards the target
 	UCapsuleComponent* capsule = GetCapsuleComponent();
 
-	// Compute a point 60 units ahead (in XY) and 50 units above the actor.
 	const FVector attackerOrigin = GetActorLocation();
 	FVector fwdVec = GetActorForwardVector();
 
-	//Enlarge the forward vector with a little additiona buffer 
+	//Enlarge the forward vector with a little additional buffer 
 	//so it is definetely outside the capsule
 	fwdVec *= (capsule->GetScaledCapsuleRadius() + 10.0f);
 
-	//We add a little height of 50 for the actor beeing able to shoot from
+	//We add half the capsule height for the actor beeing able to shoot from
 	//heighened positions without touching the ground that easily
-	const FVector attackerStartVectorPoint = attackerOrigin + FVector(fwdVec.X, fwdVec.Y, capsule->GetScaledCapsuleHalfHeight());
+	const FVector attackStartVectorPoint = attackerOrigin + FVector(fwdVec.X, fwdVec.Y, capsule->GetScaledCapsuleHalfHeight());
 
-	//Calculate the vector from the attacker to the attacked and double it
-	//so it is defintely long enough to penetrate the target
-	FVector attackVector = (AttackTarget->GetActorLocation() - attackerOrigin) * 2.0f;
+	//Calculate the vector from the attacker to the attacked 
+	FVector attackVector = AttackTarget->GetActorLocation() - attackerOrigin;
 
 	//2. Random values are calculated to determine a "shooting cone" of possible values, 
 	//   dependent on distance and a unit specific spread value.
@@ -469,9 +467,9 @@ bool ATopBaseUnit::TryToAttackTargetSuccessful() {
 	float ySpreadValue = FMath::FRandRange(-spreadValue, spreadValue);
 	float zSpreadValue = FMath::FRandRange(-spreadValue, spreadValue);
 
-	const FVector attackerStartEndPoint = 
-		attackerStartVectorPoint + 
-		attackVector + 
+	const FVector attackEndVectorPoint = 
+		attackStartVectorPoint + 
+		attackVector * 2.0f + // double the attack vector it so it is definetely long enough to penetrate the target
 		FVector(xSpreadValue, ySpreadValue, zSpreadValue);
 
 	//3. Now we make a line trace in order to check wether the target was hit
@@ -489,7 +487,7 @@ bool ATopBaseUnit::TryToAttackTargetSuccessful() {
 	// while distance attacks through friendly units are
 	// blocked. (Design decision)
 	// 
-	// Mathematics for meelle would be too complex in close combat with many actors
+	// Mathematics for melee would be too complex in close combat with many actors
 	if(AttackComponent->Type == EAttackType::Melee) {
 		bTraceComplex = true;
 	}
@@ -497,10 +495,11 @@ bool ATopBaseUnit::TryToAttackTargetSuccessful() {
 	// Debug Draw (optional)
 	EDrawDebugTrace::Type DebugDraw = EDrawDebugTrace::None;
 
+	//BOOOOM
 	bool bHit = UKismetSystemLibrary::LineTraceSingle(
 		GetWorld(),
-		attackerStartVectorPoint,
-		attackerStartEndPoint,
+		attackStartVectorPoint,
+		attackEndVectorPoint,
 		TraceChannel,
 		bTraceComplex,
 		ActorsToIgnore,
@@ -512,6 +511,8 @@ bool ATopBaseUnit::TryToAttackTargetSuccessful() {
 		0.2f           // DrawTime
 	);
 
+	//4. In case we hit something, we have to differentiate what we hit
+
 	if (bHit)
 	{
 		AActor* HitActor = HitResult.GetActor();
@@ -522,15 +523,17 @@ bool ATopBaseUnit::TryToAttackTargetSuccessful() {
 		// irgendwo in deiner Trefferbehandlung:
 		if (auto* HitUnit = Cast<ATopBaseUnit>(HitResult.GetActor()))
 		{
+			//We hit a unit
+
 			if (this->FactionId != HitUnit->FactionId) // dein Vergleich aus dem BP
 			{
+				//We hit an enemy unit
 
-				// Actor Spawn Parameter vorbereiten
+				//Spawn a blood niagara system at the hitpoint
 				FActorSpawnParameters SpawnParams;
 				SpawnParams.Owner = this;
 				SpawnParams.Instigator = GetInstigator();
 
-				// exakter Pfad inkl. _C  (Copy Reference -> Path umbauen)
 				UClass* BloodSpitClass = LoadClass<AActor>(
 					nullptr,
 					TEXT("/Game/TopDown/Blueprints/Units/BP_Actor_BloodSpit.BP_Actor_BloodSpit_C")
@@ -549,21 +552,23 @@ bool ATopBaseUnit::TryToAttackTargetSuccessful() {
 					);
 				}
 
+				//Notify the other unit to make damage calculation
 				HitUnit->OnHit(this);
-
 
 				return true; //Successful Hit
 			}
 			else
 			{
-				//no friendly fire at the moment
+				//we hit a friendly unit, no friendly fire at the moment
 				//We currently dont have any attack markings for this,
-				//however we may need in the future, for instance for artillery attacks with splash damage, etc.
+				//however we may need in the future, for instance artillery attacks with splash damage, etc.
 			}
 		}
 		else
 		{
-			// do something with HitUnit
+			//We hit a "non unit" actor, like a stone, landscape, something movable but not attributed to any team...
+
+			//Spawn a hit marker
 			if (auto* DM = GetWorld()->GetSubsystem<UCarnageDecalManager>())
 			{
 				DM->SpawnDecalByTagAtHit(HitResult, FGameplayTag::RequestGameplayTag(FName("Decal.HitMetal")));
