@@ -208,6 +208,10 @@ public:
 
 #pragma region helpers
 
+	/** This method handles attacking another unit, including calling the hit event */
+	UFUNCTION(BlueprintCallable, Category = "Unit|Combat")
+	bool TryToAttackTargetSuccessful();
+
 	/** Tries to auto attack the closest enemy if within minimum range. Returns true if attack started */
 	UFUNCTION(BlueprintCallable, Category = "Unit|Combat")
 	bool TryAutoAttackIfTargetIsWithinMinimumRange();

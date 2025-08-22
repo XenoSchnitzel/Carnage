@@ -8,6 +8,18 @@ public class Carnage : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
-        PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "GameplayTasks", "HeadMountedDisplay", "NavigationSystem", "AIModule", "Niagara" });
+        PublicDependencyModuleNames.AddRange(
+			new string[] { 
+				"Core",
+				"CoreUObject",
+				"Engine",
+				"InputCore", 
+				"GameplayTasks",
+				"GameplayTags",
+				"HeadMountedDisplay",
+				"NavigationSystem",
+				"AIModule",
+				"Niagara",
+				"PhysicsCore" });
     }
 }

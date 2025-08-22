@@ -1,12 +1,18 @@
 ﻿#include "ATopBaseUnit.h"
 #include "../GameState/ACarnageGameState.h"
 
+#include "Components/CapsuleComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Blueprint/AIBlueprintHelperLibrary.h"
 #include "AIController.h"
 #include "Tasks/AITask_MoveTo.h"
 #include "AITypes.h"  // for FAIRequestID
+#include "NiagaraFunctionLibrary.h"   // für UNiagaraFunctionLibrary::SpawnSystemAtLocation
+#include "NiagaraSystem.h"            // für UNiagaraSystem (Asset-Klasse)
+
+#include "../Decals/DecalManager.h"
+#include "../Decals/DecalLibrary.h"
 
 #include "Navigation/PathFollowingComponent.h"   // for EPath
 
@@ -427,6 +433,149 @@ void ATopBaseUnit::Tick(float DeltaTime)
 #pragma endregion
 
 #pragma region helpers
+
+bool ATopBaseUnit::TryToAttackTargetSuccessful() {
+
+	//1. First we try calculate:
+	//   * a start vector (e.g. shooting/slashing/... start point) coming from the attacking actor
+	//   * an attack vector pointing towards the target
+	UCapsuleComponent* capsule = GetCapsuleComponent();
+
+	// Compute a point 60 units ahead (in XY) and 50 units above the actor.
+	const FVector attackerOrigin = GetActorLocation();
+	FVector fwdVec = GetActorForwardVector();
+
+	//Enlarge the forward vector with a little additiona buffer 
+	//so it is definetely outside the capsule
+	fwdVec *= (capsule->GetScaledCapsuleRadius() + 10.0f);
+
+	//We add a little height of 50 for the actor beeing able to shoot from
+	//heighened positions without touching the ground that easily
+	const FVector attackerStartVectorPoint = attackerOrigin + FVector(fwdVec.X, fwdVec.Y, capsule->GetScaledCapsuleHalfHeight());
+
+	//Calculate the vector from the attacker to the attacked and double it
+	//so it is defintely long enough to penetrate the target
+	FVector attackVector = (AttackTarget->GetActorLocation() - attackerOrigin) * 2.0f;
+
+	//2. Random values are calculated to determine a "shooting cone" of possible values, 
+	//   dependent on distance and a unit specific spread value.
+	//   With this we can determine the end point vector of the attack.
+
+	//Dependant on the length a spread value is calulated in
+	float spreadValue = attackVector.Length() * AttackComponent->Spread;
+
+	//Now we calculate three random components based on the spreadvalue for each dimension 
+	float xSpreadValue = FMath::FRandRange(-spreadValue, spreadValue);
+	float ySpreadValue = FMath::FRandRange(-spreadValue, spreadValue);
+	float zSpreadValue = FMath::FRandRange(-spreadValue, spreadValue);
+
+	const FVector attackerStartEndPoint = 
+		attackerStartVectorPoint + 
+		attackVector + 
+		FVector(xSpreadValue, ySpreadValue, zSpreadValue);
+
+	//3. Now we make a line trace in order to check wether the target was hit
+
+	FHitResult HitResult;
+	TArray<AActor*> ActorsToIgnore;
+	ActorsToIgnore.Add(this);   // entspricht "Ignore Self = true"
+
+	// wähle deinen Kanal (im BP war es TraceTypeQuery1)
+	const ETraceTypeQuery TraceChannel = UEngineTypes::ConvertToTraceType(ECC_Visibility);
+
+	bool bTraceComplex = false;
+
+	//Meelee attacks can "penetrate" other units, 
+	// while distance attacks through friendly units are
+	// blocked. (Design decision)
+	// 
+	// Mathematics for meelle would be too complex in close combat with many actors
+	if(AttackComponent->Type == EAttackType::Melee) {
+		bTraceComplex = true;
+	}
+
+	// Debug Draw (optional)
+	EDrawDebugTrace::Type DebugDraw = EDrawDebugTrace::None;
+
+	bool bHit = UKismetSystemLibrary::LineTraceSingle(
+		GetWorld(),
+		attackerStartVectorPoint,
+		attackerStartEndPoint,
+		TraceChannel,
+		bTraceComplex,
+		ActorsToIgnore,
+		DebugDraw,
+		HitResult,
+		true,          // bIgnoreSelf
+		FLinearColor::Red,
+		FLinearColor::Green,
+		0.2f           // DrawTime
+	);
+
+	if (bHit)
+	{
+		AActor* HitActor = HitResult.GetActor();
+		FVector ImpactPoint = HitResult.ImpactPoint;
+		FVector ImpactNormal = HitResult.ImpactNormal;
+
+
+		// irgendwo in deiner Trefferbehandlung:
+		if (auto* HitUnit = Cast<ATopBaseUnit>(HitResult.GetActor()))
+		{
+			if (this->FactionId != HitUnit->FactionId) // dein Vergleich aus dem BP
+			{
+
+				// Actor Spawn Parameter vorbereiten
+				FActorSpawnParameters SpawnParams;
+				SpawnParams.Owner = this;
+				SpawnParams.Instigator = GetInstigator();
+
+				// exakter Pfad inkl. _C  (Copy Reference -> Path umbauen)
+				UClass* BloodSpitClass = LoadClass<AActor>(
+					nullptr,
+					TEXT("/Game/TopDown/Blueprints/Units/BP_Actor_BloodSpit.BP_Actor_BloodSpit_C")
+				);
+
+				if (!BloodSpitClass)
+				{
+					UE_LOG(LogTemp, Error, TEXT("LoadClass failed for BP_Actor_BloodSpit"));
+				}
+				else
+				{
+					GetWorld()->SpawnActor<AActor>(
+						BloodSpitClass,
+						HitResult.ImpactPoint,
+						HitResult.ImpactNormal.Rotation()
+					);
+				}
+
+				HitUnit->OnHit(this);
+
+
+				return true; //Successful Hit
+			}
+			else
+			{
+				//no friendly fire at the moment
+				//We currently dont have any attack markings for this,
+				//however we may need in the future, for instance for artillery attacks with splash damage, etc.
+			}
+		}
+		else
+		{
+			// do something with HitUnit
+			if (auto* DM = GetWorld()->GetSubsystem<UCarnageDecalManager>())
+			{
+				DM->SpawnDecalByTagAtHit(HitResult, FGameplayTag::RequestGameplayTag(FName("Decal.HitMetal")));
+			}
+		}
+		// fallback branch
+	}
+
+	
+
+	return false;
+}
 
 bool ATopBaseUnit::TryAutoAttackIfTargetIsWithinMinimumRange()
 {
