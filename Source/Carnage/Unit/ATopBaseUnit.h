@@ -152,18 +152,26 @@ public:
 
 	ATopBaseUnit();
 
-	UPROPERTY(BlueprintReadWrite, EditAnywhere)
-	AActor* AttackTarget = nullptr;
-
 	virtual void BeginPlay() override;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere)
-		EFaction FactionId;
+	AActor* AttackTarget = nullptr;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere)
+	EFaction FactionId;
+
+	// Toggle per instance in Editor/PIE and per Code
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Debug|StateLog")
+	bool bStateLogEnabled = false;
 
 	/** Called when the current attack target dies */
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Events")
 	 void OnAttackTargetDeath();
 	 virtual void OnAttackTargetDeath_Implementation();
+
+	 UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Debug|Attack Indicator")
+	 void ShowAttackIndicator(bool show);
+	 virtual void ShowAttackIndicator_Implementation(bool show);
 
 	 UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Selection")
 	 void SelectUnit();
@@ -210,7 +218,7 @@ public:
 
 	/** This method handles attacking another unit, including calling the hit event */
 	UFUNCTION(BlueprintCallable, Category = "Unit|Combat")
-	bool TryToAttackTargetSuccessful();
+	bool TryAttackTarget();
 
 	/** Tries to auto attack the closest enemy if within minimum range. Returns true if attack started */
 	UFUNCTION(BlueprintCallable, Category = "Unit|Combat")

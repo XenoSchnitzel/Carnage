@@ -32,7 +32,7 @@ ATopBaseUnit::ATopBaseUnit()
 
 void ATopBaseUnit::BeginPlay()
 {
-	//CVarStateSystemLog->Set(1, ECVF_SetByCode); //Enables Makro/Mikro State Changes logging by default 
+	CVarStateSystemLog->Set(1, ECVF_SetByCode); //Enables Makro/Mikro State Changes logging by default 
 	
 	/* - OR - type in game console:
 
@@ -55,6 +55,8 @@ void ATopBaseUnit::BeginPlay()
 #pragma endregion
 
 #pragma region events
+
+void ATopBaseUnit::ShowAttackIndicator_Implementation(bool show) {}
 
 void ATopBaseUnit::OnHit_Implementation(ATopBaseUnit* Attacker)
 {
@@ -166,7 +168,8 @@ void ATopBaseUnit::NotifyActorEndOverlap(AActor* OtherActor)
 
 void ATopBaseUnit::OnAttackTargetDeath_Implementation()
 {
-	UE_LOG(LogTemp, Log, TEXT("Attack target of %s has died"), *GetName());
+	STATE_LOG(this, Log, "Attack target of %s has died", *GetName());
+
 
 	StopCommand();
 }
@@ -266,6 +269,8 @@ void ATopBaseUnit::SetUnitState(EUnitMakroState newMakroState, EUnitMikroState n
 			{
 				//Get rid of my attack target when NOT attacking anymore
 				InvalidateAttackTarget();
+
+				this->ShowAttackIndicator(false);
 			}
 			break;
 		}
@@ -282,7 +287,7 @@ void ATopBaseUnit::SetUnitState(EUnitMakroState newMakroState, EUnitMikroState n
 
 	p_fStateTimeCounter = 0.0f;
 
-	STATE_LOG(Log, "SetUnitState() Makro: %s, Mikro %s",
+	STATE_LOG(this, Log, "SetUnitState() Makro: %s, Mikro %s",
 		*UEnum::GetValueAsString(ECurrentUnitMakroState),
 		*UEnum::GetValueAsString(ECurrentUnitMikroState));	
 }
@@ -321,7 +326,10 @@ void ATopBaseUnit::IdleChillingState(float DeltaSeconds) {
 }
 
 void ATopBaseUnit::IdleCooldownState(float DeltaSeconds) {
-
+	if (p_fStateTimeCounter >= AttackComponent->CoolDownTime) {
+		SetUnitState(EUnitMakroState::UnitMakroState_Idle,
+			EUnitMikroState::UnitMikroState_Idle_Chilling);
+	}
 }
 
 void ATopBaseUnit::MovingState(float DeltaSeconds)
@@ -331,7 +339,7 @@ void ATopBaseUnit::MovingState(float DeltaSeconds)
 	{
 		if (ACarnageGameState* GS = World->GetGameState<ACarnageGameState>())
 		{
-			//Get Actor Locatoin
+			//Get Actor Location
 			FVector location = this->GetActorLocation();
 			FVector2D Pos2D = FVector2D(location.X, location.Y);
 
@@ -369,21 +377,18 @@ void ATopBaseUnit::AttackingState(float DeltaSeconds)
 void ATopBaseUnit::AttackRotateState(float DeltaSeconds)
 {
 	// If target is not valid -> back to idle
-	if (!AttackTarget || !IsValid(AttackTarget))
-	{
+	if (!AttackTarget || !IsValid(AttackTarget)) {
 		SetUnitState(EUnitMakroState::UnitMakroState_Idle,
 			EUnitMikroState::UnitMikroState_Idle_Chilling);
 		return;
 	}
 
 	// Already facing target?
-	if (IsFacingAttackTarget())
-	{
+	if (IsFacingAttackTarget()) {
 		SetUnitState(EUnitMakroState::UnitMakroState_Attacking,
 			EUnitMikroState::UnitMikroState_Attack_Start);
 	}
-	else
-	{
+	else {
 		// Rotate until facing
 		RotateToAttackTarget(DeltaSeconds);
 	}
@@ -391,18 +396,40 @@ void ATopBaseUnit::AttackRotateState(float DeltaSeconds)
 
 void ATopBaseUnit::AttackStartState(float DeltaSeconds)
 {
+	if (TryAttackTarget()) {
+		this->ShowAttackIndicator(true);
+
+		SetUnitState(EUnitMakroState::UnitMakroState_Attacking,
+			EUnitMikroState::UnitMikroState_Attack_Performing);
+	}
+	else {
+		SetUnitState(EUnitMakroState::UnitMakroState_Idle,
+			EUnitMikroState::UnitMikroState_Idle_Cooldown);
+	}
 }
 
 void ATopBaseUnit::AttackPerfomingState(float DeltaSeconds)
 {
+	if (p_fStateTimeCounter >= AttackComponent->AttackTime) {
+		SetUnitState(EUnitMakroState::UnitMakroState_Attacking,
+			EUnitMikroState::UnitMikroState_Attack_Cooldown_Start);
+	}
 }
 
 void ATopBaseUnit::AttackCooldownStartState(float DeltaSeconds)
 {
+	this->ShowAttackIndicator(false);
+	
+	SetUnitState(EUnitMakroState::UnitMakroState_Attacking,
+		EUnitMikroState::UnitMikroState_Attack_Cooldown_Performing);
 }
 
 void ATopBaseUnit::AttackCooldownPeformingState(float DeltaSeconds)
 {
+	if (p_fStateTimeCounter >= AttackComponent->CoolDownTime) {
+		SetUnitState(EUnitMakroState::UnitMakroState_Attacking,
+			EUnitMikroState::UnitMikroState_Attack_Rotate);
+	}
 }
 
 void ATopBaseUnit::Tick(float DeltaTime)
@@ -414,19 +441,19 @@ void ATopBaseUnit::Tick(float DeltaTime)
 	DampOverlappingUnits(DeltaTime);
 
 	switch (ECurrentUnitMakroState) {
-	case EUnitMakroState::UnitMakroState_Idle:
-		IdleState(DeltaTime);
-		break;
-	case EUnitMakroState::UnitMakroState_Moving:
-		MovingState(DeltaTime);
-		break;
-	case EUnitMakroState::UnitMakroState_Attacking:
-		AttackingState(DeltaTime);
-		break;
-	default:
-		//checkf(false, TEXT("Unhandled MikroState in AttackingState: %s"),
-		//	*UEnum::GetValueAsString(ECurrentUnitMakroState));
-		break;
+		case EUnitMakroState::UnitMakroState_Idle:
+			IdleState(DeltaTime);
+			break;
+		case EUnitMakroState::UnitMakroState_Moving:
+			MovingState(DeltaTime);
+			break;
+		case EUnitMakroState::UnitMakroState_Attacking:
+			AttackingState(DeltaTime);
+			break;
+		default:
+			//checkf(false, TEXT("Unhandled MikroState in AttackingState: %s"),
+			//	*UEnum::GetValueAsString(ECurrentUnitMakroState));
+			break;
 	}
 }
 
@@ -434,7 +461,7 @@ void ATopBaseUnit::Tick(float DeltaTime)
 
 #pragma region helpers
 
-bool ATopBaseUnit::TryToAttackTargetSuccessful() {
+bool ATopBaseUnit::TryAttackTarget() {
 
 	//1. First we try calculate:
 	//   * a start vector (e.g. shooting/slashing/... start point) coming from the attacking actor
@@ -495,7 +522,7 @@ bool ATopBaseUnit::TryToAttackTargetSuccessful() {
 	// Debug Draw (optional)
 	EDrawDebugTrace::Type DebugDraw = EDrawDebugTrace::None;
 
-	//BOOOOM
+	//4. BOOOOM
 	bool bHit = UKismetSystemLibrary::LineTraceSingle(
 		GetWorld(),
 		attackStartVectorPoint,
@@ -511,7 +538,7 @@ bool ATopBaseUnit::TryToAttackTargetSuccessful() {
 		0.2f           // DrawTime
 	);
 
-	//4. In case we hit something, we have to differentiate what we hit
+	//5. In case we hit something, we have to differentiate what we hit
 
 	if (bHit)
 	{
@@ -519,8 +546,6 @@ bool ATopBaseUnit::TryToAttackTargetSuccessful() {
 		FVector ImpactPoint = HitResult.ImpactPoint;
 		FVector ImpactNormal = HitResult.ImpactNormal;
 
-
-		// irgendwo in deiner Trefferbehandlung:
 		if (auto* HitUnit = Cast<ATopBaseUnit>(HitResult.GetActor()))
 		{
 			//We hit a unit
@@ -566,7 +591,7 @@ bool ATopBaseUnit::TryToAttackTargetSuccessful() {
 		}
 		else
 		{
-			//We hit a "non unit" actor, like a stone, landscape, something movable but not attributed to any team...
+			//We hit a "non unit" actor, like a stone, landscape, something moveable but not attributed to any team...
 
 			//Spawn a hit marker
 			if (auto* DM = GetWorld()->GetSubsystem<UCarnageDecalManager>())
@@ -574,10 +599,9 @@ bool ATopBaseUnit::TryToAttackTargetSuccessful() {
 				DM->SpawnDecalByTagAtHit(HitResult, FGameplayTag::RequestGameplayTag(FName("Decal.HitMetal")));
 			}
 		}
-		// fallback branch
-	}
 
-	
+		// fallback branch, hitting the air currently has no effect so no else branch here
+	}
 
 	return false;
 }
