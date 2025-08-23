@@ -199,30 +199,43 @@ void ATopBaseUnit::StopCommand()
 	SetUnitState(EUnitMakroState::UnitMakroState_Idle, EUnitMikroState::UnitMikroState_Idle_Chilling);
 }
 
-void ATopBaseUnit::MoveToCommand_Implementation(const FVector &newPos)
+void ATopBaseUnit::MoveToCommand_Implementation(const FVector& NewPos)
 {
+	// Update state
 	SetUnitState(
 		EUnitMakroState::UnitMakroState_Moving,
 		EUnitMikroState::UnitMikroState_Move_Direct_Move);
 
+	// Grab AIController
 	AAIController* AI = UAIBlueprintHelperLibrary::GetAIController(this);
 	if (!AI) { return; }
 
-	UAITask_MoveTo* Task = UAITask_MoveTo::AIMoveTo(
-		/* AI Controller*/AI,
-		/* Goal Location*/newPos,
-		/* Goal Actor */nullptr,
-		/* AcceptanceRadius */ 50.f,
-		/* Stop on Overlap */EAIOptionFlag::Enable,
-		/* Accept Partial Path */EAIOptionFlag::Disable,
-		/* Use Pathfindein */true,
-		/* Lock all logic*/false,
-		/* Use continuos goal tracking*/false,
-		/* Projekt goal on navigation*/EAIOptionFlag::Enable);
+	// (Re)bind handler on PathFollowingComponent
+	if (UPathFollowingComponent* PF = AI->GetPathFollowingComponent())
+	{
+		PF->OnRequestFinished.RemoveAll(this); // prevent duplicates
+		PF->OnRequestFinished.AddUObject(this, &ATopBaseUnit::OnMoveRequestFinished);
+	}
 
-	//Actually initiate moving task
-	Task->ReadyForActivation();
+	// Issue the move (like AIMoveTo, but directly through AIController)
+	const EPathFollowingRequestResult::Type MoveRes =
+		AI->MoveToLocation(
+			/*GoalLocation*/ NewPos,
+			/*AcceptanceRadius*/ 50.f,
+			/*bStopOnOverlap*/ true,
+			/*bUsePathfinding*/ true,
+			/*bProjectDestination*/ true,
+			/*bcanStrafe*/ true,
+			/*FilterClass*/ nullptr,
+			/*bAllowPartialPath*/ false);
 
+	// Immediate failure handling
+	if (MoveRes == EPathFollowingRequestResult::Failed)
+	{
+		SetUnitState(
+			EUnitMakroState::UnitMakroState_Idle,
+			EUnitMikroState::UnitMikroState_Idle_Chilling);
+	}
 }
 
 #pragma endregion
@@ -758,18 +771,29 @@ void ATopBaseUnit::MoveToNearestEnemy()
 
 void ATopBaseUnit::OnMoveRequestFinished(FAIRequestID /*RequestID*/, const FPathFollowingResult& Result)
 {
-	// Always stop residual movement
+	// Clean up
 	if (AAIController* AI = UAIBlueprintHelperLibrary::GetAIController(this))
 	{
 		if (UPathFollowingComponent* PF = AI->GetPathFollowingComponent())
 		{
-			PF->OnRequestFinished.RemoveAll(this); // unbind to be safe
+			PF->OnRequestFinished.RemoveAll(this);
 		}
 		AI->StopMovement();
 	}
 
-	SetUnitState(EUnitMakroState::UnitMakroState_Idle,
-		EUnitMikroState::UnitMikroState_Idle_Chilling);
+	// Evaluate result
+	if (Result.IsSuccess())
+	{
+		STATE_LOG(this, Log, "Move success");
+		SetUnitState(EUnitMakroState::UnitMakroState_Idle,
+			EUnitMikroState::UnitMikroState_Idle_Chilling);
+	}
+	else
+	{
+		STATE_LOG(this, Log, "Move failed or aborted (%i)", (int)Result.Code);
+		SetUnitState(EUnitMakroState::UnitMakroState_Idle,
+			EUnitMikroState::UnitMikroState_Idle_Chilling);
+	}
 }
 
 bool ATopBaseUnit::IsFacingAttackTarget() const
