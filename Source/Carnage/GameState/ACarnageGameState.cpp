@@ -22,7 +22,7 @@ ACarnageGameState::ACarnageGameState() {
 
 int32 ACarnageGameState::GetAllianceCount() const
 {
-    return this->FArrayAlliances.Num();;
+    return this->FArrayAlliances.Num();
 }
 
 const TArray<UAlliance*> ACarnageGameState::GetAlliances()
@@ -86,12 +86,14 @@ void ACarnageGameState::BeginPlay()
         UFactionState* PlayerFaction = NewObject<UFactionState>(this);
         PlayerFaction->SetFactionId(EFaction::Faction_1);
         PlayerFaction->AddResources(1234678);
+        PlayerFaction->ePlayerType = EPlayerType::Human;
         FArrayFactions.Add(PlayerFaction);
 
         // Enemy faction
         UFactionState* AlienFaction = NewObject<UFactionState>(this);
         AlienFaction->SetFactionId(EFaction::Faction_2);
         AlienFaction->AddResources(1000000);
+        AlienFaction->ePlayerType = EPlayerType::Computer;
         FArrayFactions.Add(AlienFaction);
 
         //Adding them to different Alliances makes them enemys

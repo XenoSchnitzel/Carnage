@@ -4,9 +4,8 @@
 
 #include "CoreMinimal.h"
 
-//TODO: Rename to EUnitMakroState once BaseUnit has been transfered to C++
 UENUM(BlueprintType)
-enum UnitMakroState
+enum class EUnitMakroState : uint8
 {
 	UnitMakroState_Idle				UMETA(DisplayName = "Idle"),
 	UnitMakroState_Moving			UMETA(DisplayName = "Moving"),
@@ -17,8 +16,10 @@ enum UnitMakroState
 };
 
 UENUM(BlueprintType)
-enum UnitMikroState
+enum class EUnitMikroState : uint8
 {
+	UnitMikroState_NoSubState					UMETA(DisplayName = "NoSubState"),
+
 	UnitMikroState_Idle_Chilling				UMETA(DisplayName = "Idle_Chilling"),
 	UnitMikroState_Idle_Cooldown				UMETA(DisplayName = "Idle_Cooldown"),
 
@@ -33,3 +34,4 @@ enum UnitMikroState
 	UnitMikroState_Move_To_Mining				UMETA(DisplayName = "Move_To_Mining"),
 	UnitMikroState_Move_FromMining				UMETA(DisplayName = "Move_From_Mining")
 };
+
