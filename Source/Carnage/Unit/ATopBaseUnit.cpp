@@ -553,6 +553,21 @@ bool ATopBaseUnit::TryAttackTarget() {
 
 	//5. In case we hit something, we have to differentiate what we hit
 
+	//if (GEngine)
+	//{
+	//	UE_LOG(LogTemp, Warning, TEXT("=== Listing Worlds ==="));
+	//	for (const FWorldContext& Context : GEngine->GetWorldContexts())
+	//	{
+	//		if (UWorld* World = Context.World())
+	//		{
+	//			UE_LOG(LogTemp, Warning, TEXT("World: %s  Type=%s  PIE=%d"),
+	//				*World->GetName(),
+	//				*UEnum::GetValueAsString(Context.WorldType),
+	//				(int)Context.PIEInstance);
+	//		}
+	//	}
+	//}
+
 	if (bHit)
 	{
 		AActor* HitActor = HitResult.GetActor();

@@ -8,7 +8,8 @@
 void UCarnageDecalManager::Initialize(FSubsystemCollectionBase& C) {
     Super::Initialize(C); 
 
-    UE_LOG(LogTemp, Warning, TEXT("DecalManager INIT  class=%s"),
+    UE_LOG(LogTemp, Warning, TEXT("CarnageDecalManager INIT World=%s Class=%s"),
+        *GetWorld()->GetName(),
         *GetClass()->GetPathName());
 
     const UDecalLibrary* Lib = LoadLibrary();
@@ -100,14 +101,14 @@ UDecalComponent* UCarnageDecalManager::SpawnDecalByTagAtHit(const FHitResult& Hi
     if (Yaw > 0.f) Rot.Yaw += FMath::FRandRange(-Yaw, Yaw);
 
     UDecalComponent* Decal = UGameplayStatics::SpawnDecalAttached(
-        Mat,                     // UMaterialInterface*
-        FVector(64.f, 128.f, 128.f),       // Decal size (X=thickness, Y/Z=width/height)
-        Hit.GetComponent(),                      // USceneComponent* to attach to
-        NAME_None,                         // Optional socket
-        Hit.ImpactPoint,                   // Relative location
-        Hit.ImpactNormal.Rotation(),       // Rotation so decal faces the surface
+        Mat,                                    // UMaterialInterface*
+        FVector(Size, Size, Size),              // Decal size (X=thickness, Y/Z=width/height)
+        Hit.GetComponent(),                     // USceneComponent* to attach to
+        NAME_None,                              // Optional socket
+        Hit.ImpactPoint,                        // Relative location
+        Hit.ImpactNormal.Rotation(),            // Rotation so decal faces the surface
         EAttachLocation::KeepWorldPosition,
-        10.0f                              // Life span in seconds
+        Life                                  // Life span in seconds
     );
 
     //UDecalComponent* Decal = UGameplayStatics::SpawnDecalAtLocation()
@@ -115,7 +116,7 @@ UDecalComponent* UCarnageDecalManager::SpawnDecalByTagAtHit(const FHitResult& Hi
 
     if (Decal && Fade > 0.f) {
         Decal->SetFadeScreenSize(0.0f);
-        Decal->SetFadeOut(0, 20.0f, false);
+        Decal->SetFadeOut(0, Fade, false);
     }
     return Decal;
 }
