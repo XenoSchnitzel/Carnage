@@ -7,6 +7,108 @@
 #include <numeric>
 #include <array>
 
+static bool IsPointInPolygon(const FVector2D& P, const TArray<FVector2D>& Poly)
+{
+    bool bInside = false;
+    int32 Count = Poly.Num();
+    for (int32 i = 0, j = Count - 1; i < Count; j = i++)
+    {
+        const FVector2D& Pi = Poly[i];
+        const FVector2D& Pj = Poly[j];
+
+        if (((Pi.Y > P.Y) != (Pj.Y > P.Y)) &&
+            (P.X < (Pj.X - Pi.X) * (P.Y - Pi.Y) / (Pj.Y - Pi.Y) + Pi.X))
+        {
+            bInside = !bInside;
+        }
+    }
+    return bInside;
+}
+
+// Uniform distribution inside an annulus (ring) between MinRadius and MaxRadius
+// Density per area is uniform
+static FVector2D SampleUniformInAnnulus(FRandomStream& Stream, float MinRadius, float MaxRadius)
+{
+    float u = Stream.FRand();
+    // sqrt ensures uniform density per area
+    float r = FMath::Sqrt(
+        MinRadius * MinRadius + u * (MaxRadius * MaxRadius - MinRadius * MinRadius)
+    );
+
+    float angle = Stream.FRandRange(0.f, 2 * PI);
+
+    return FVector2D(
+        r * FMath::Cos(angle),
+        r * FMath::Sin(angle)
+    );
+}
+
+// Gaussian falloff inside annulus [MinRadius, MaxRadius]
+// Mean = MinRadius, MaxRadius = Mean + 3*Sigma
+// Density per area is correct
+static FVector2D SampleGaussianInAnnulus(FRandomStream& Stream, float MinRadius, float MaxRadius, float distributionBias = 1.0f)
+{
+    if (distributionBias < 0.001f) {
+        distributionBias = 0.001f;
+    }
+
+    float Sigma = distributionBias * (MaxRadius - MinRadius) / 3.0f;
+
+    float x, y;
+    {
+        // Box–Muller in 2D
+        float u1 = FMath::Max(Stream.FRand(), SMALL_NUMBER);
+        float u2 = Stream.FRand();
+
+        float r = FMath::Sqrt(-2.0f * FMath::Loge(u1));
+        float theta = 2 * PI * u2;
+
+        x = r * FMath::Cos(theta);
+        y = r * FMath::Sin(theta);
+    }
+
+    // compute radius from Gaussian
+    float gaussR = MinRadius + FMath::Abs(x) * Sigma; // radial symmetric
+    gaussR = FMath::Clamp(gaussR, MinRadius, MaxRadius);
+
+    float angle = Stream.FRandRange(0.f, 2 * PI);
+
+    return FVector2D(
+        gaussR * FMath::Cos(angle),
+        gaussR * FMath::Sin(angle)
+    );
+}
+
+// UD = Uniform Distribution value [0..1]
+// UD = 0   -> pure Gaussian (concentrated at center)
+// UD = 0.5 -> balanced Gaussian full radius
+// UD = 1   -> pure Uniform (full radius)
+static FVector2D CalcPointByDistributionType(FRandomStream& Stream, const FVector2D& Center, float Radius, float UD)
+{
+    if (UD > 0.5f)
+    {
+        float randomFloat = Stream.FRand();
+        float normalizedUD = (UD - 0.5f) * 2.0f;  // 0..1
+        float cutRadius = normalizedUD * Radius;  // inner part = uniform
+
+        if (randomFloat < normalizedUD)
+        {
+            // uniform in inner circle [0, cutRadius]
+            return Center + SampleUniformInAnnulus(Stream, 0.0f, cutRadius);
+        }
+        else
+        {
+            // gaussian in outer ring [cutRadius, Radius]
+            return Center + SampleGaussianInAnnulus(Stream, cutRadius, Radius);
+        }
+    }
+    else
+    {
+        // pure gaussian on full radius
+        return Center + SampleGaussianInAnnulus(Stream, 0.0f, Radius, UD * 2.0f);
+    }
+}
+
 template <typename T> using Tri = std::array<T, 3>;
 
 AResourceAreaVolume::AResourceAreaVolume()
@@ -131,87 +233,52 @@ FVector RandomPointInTriangle(const FVector2D& A, const FVector2D& B, const FVec
 
 TArray<FVector> AResourceAreaVolume::GeneratePointsInPolygon(int32 Count)
 {
-    using Point = std::array<double, 2>;
-    using Polygon = std::vector<std::vector<Point>>;
-
     FRandomStream Stream(GenerationSeed);
-
-    // Convert Spline points to std::array format for earcut
-    std::vector<Point> OuterPolygon;
-    for (int32 i = 0; i < SplineComponent->GetNumberOfSplinePoints(); ++i)
-    {
-        FVector P = SplineComponent->GetLocationAtSplinePoint(i, ESplineCoordinateSpace::World);
-        OuterPolygon.push_back({ static_cast<double>(P.X), static_cast<double>(P.Y) });
-    }
-
-    Polygon Poly = { OuterPolygon };
-    std::vector<int> Indices = mapbox::earcut<int>(Poly);
-
-    // Reconstruct triangles from indices
-    TArray<std::array<Point, 3>> Triangles;
-    for (size_t i = 0; i < Indices.size(); i += 3)
-    {
-        Triangles.Add({
-            OuterPolygon[Indices[i]],
-            OuterPolygon[Indices[i + 1]],
-            OuterPolygon[Indices[i + 2]]
-            });
-    }
-
-    // Calculate triangle areas
-    std::vector<float> Areas;
-    for (const auto& T : Triangles)
-    {
-        float Area = FMath::Abs(
-            static_cast<float>(
-                T[0][0] * (T[1][1] - T[2][1]) +
-                T[1][0] * (T[2][1] - T[0][1]) +
-                T[2][0] * (T[0][1] - T[1][1])
-                ) * 0.5f
-        );
-        Areas.push_back(Area);
-    }
-
-    // Cumulative area distribution
-    std::vector<float> Cumulative;
-    std::partial_sum(Areas.begin(), Areas.end(), std::back_inserter(Cumulative));
-    float TotalArea = Cumulative.back();
-
-    // Sample random points in triangle
     TArray<FVector> Points;
     Points.Reserve(Count);
 
-    for (int i = 0; i < Count; ++i)
+    // --- Build polygon from spline ---
+    TArray<FVector2D> Polygon;
+    for (int32 i = 0; i < SplineComponent->GetNumberOfSplinePoints(); ++i)
     {
-        float R = Stream.FRandRange(0.f, TotalArea);
-        int TriIndex = static_cast<int>(std::lower_bound(Cumulative.begin(), Cumulative.end(), R) - Cumulative.begin());
-        TriIndex = FMath::Clamp(TriIndex, 0, Triangles.Num() - 1);
+        FVector P = SplineComponent->GetLocationAtSplinePoint(i, ESplineCoordinateSpace::World);
+        Polygon.Add(FVector2D(P.X, P.Y));
+    }
 
-        const auto& T = Triangles[TriIndex];
+    // --- Bounds as approximation for center and radius ---
+    FBox2D Bounds(EForceInit::ForceInit);
+    for (const FVector2D& P : Polygon)
+    {
+        Bounds += P;
+    }
+    const FVector2D Center = Bounds.GetCenter();
+    const float Radius = Bounds.GetExtent().Size();
 
-        // Sample barycentric coordinates
-        float u = Stream.FRand();
-        float v = Stream.FRand();
-        if (u + v > 1.0f)
+    // --- Generate points ---
+    int32 Generated = 0;
+    int32 Safety = 0;
+    while (Generated < Count && Safety < Count * 20)
+    {
+        Safety++;
+
+        FVector2D Candidate = CalcPointByDistributionType(Stream, Center, Radius, UniformDistanceDistribution);
+
+        // ensure inside polygon
+        if (IsPointInPolygon(Candidate, Polygon))
         {
-            u = 1.0f - u;
-            v = 1.0f - v;
+            // project Z onto terrain
+            float z = GetActorLocation().Z;
+            FHitResult Hit;
+            FVector Start(Candidate.X, Candidate.Y, z + 10000.f);
+            FVector End(Candidate.X, Candidate.Y, z - 10000.f);
+            if (GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility))
+            {
+                z = Hit.ImpactPoint.Z;
+            }
+
+            Points.Add(FVector(Candidate.X, Candidate.Y, z));
+            Generated++;
         }
-
-        float x = static_cast<float>(T[0][0] + u * (T[1][0] - T[0][0]) + v * (T[2][0] - T[0][0]));
-        float y = static_cast<float>(T[0][1] + u * (T[1][1] - T[0][1]) + v * (T[2][1] - T[0][1]));
-        float z = GetActorLocation().Z;
-
-        // Project to terrain
-        FHitResult Hit;
-        FVector Start(x, y, z + 10000.f);
-        FVector End(x, y, z - 10000.f);
-        if (GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility))
-        {
-            z = Hit.ImpactPoint.Z;
-        }
-
-        Points.Add(FVector(x, y, z));
     }
 
     return Points;
