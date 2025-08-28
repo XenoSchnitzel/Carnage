@@ -143,56 +143,98 @@ void AResourceAreaVolume::GenerateResources()
     if (!ResourceNodeClass) return;
 
     FRandomStream Stream(GenerationSeed);
+
+    // Anzahl an Sample-Punkten (über TotalResources steuerbar)
     const int32 Count = FMath::Max(1, TotalResources / 100);
 
+    // Punkte im Polygon generieren (gleichmäßig verteilt)
     TArray<FVector> Points = GeneratePointsInPolygon(Count);
-    // Mittelpunkt und maximalen Abstand berechnen
-    FBox2D Bounds(EForceInit::ForceInit);
 
+    // Bounding Box für Berechnung von Center und Extent
+    FBox2D Bounds(EForceInit::ForceInit);
     for (const FVector& P : Points)
     {
         Bounds += FVector2D(P.X, P.Y);
     }
+
     const FVector2D Center = Bounds.GetCenter();
-    const float MaxDist = Bounds.GetExtent().Size();
+    const FVector2D Extent = Bounds.GetExtent();
+
+    // Sigma-Werte aus UniformDistanceDistribution ableiten
+    float SigmaX = FMath::Lerp(Extent.X * 0.05f, Extent.X, UniformDistanceDistribution);
+    float SigmaY = FMath::Lerp(Extent.Y * 0.05f, Extent.Y, UniformDistanceDistribution);
+
+    float Value_Max = -FLT_MAX;
+    float Value_Min = FLT_MAX;
+    TArray<AResourceNode*> Nodes;
+
 
     for (const FVector& P : Points)
     {
-        const float Distance = FVector2D::Distance(FVector2D(P.X, P.Y), Center);
-        const float Normalized = FMath::Clamp(Distance / MaxDist, 0.f, 1.f);
+        float dx = P.X - Center.X;
+        float dy = P.Y - Center.Y;
 
-        // ---------------- VALUE distribution ----------------
-        const float MinFactor = 0.1f;   // Rand
-        const float MaxFactor = 2.0f;   // Zentrum
+        // Gaußfunktion für Abstand zum Zentrum
+        float Weight = FMath::Exp(
+            -0.5f * (FMath::Square(dx / SigmaX) + FMath::Square(dy / SigmaY))
+        );
+
+        // Mit Zufall verwerfen -> Bias zur Mitte
+        if (Stream.FRand() > Weight)
+        {
+            continue;
+        }
+
+        // -------------------------------
+        // Resource Amount nach Value-Distribution
+        const float Distance = FVector2D::Distance(FVector2D(P.X, P.Y), Center);
+        
+        const float Normalized = FMath::Clamp(Distance / Extent.Size(), 0.f, 1.f);
+        
+
+        const float MinFactor = 0.1f;  // Rand
+        const float MaxFactor = 2.0f;  // Zentrum
         const float NonUniformValue = FMath::Lerp(MaxFactor, MinFactor, Normalized);
         const float FinalValueFactor = FMath::Lerp(1.0f, NonUniformValue, 1.0f - UniformValueDistribution);
 
+        if (Value_Max < FinalValueFactor) {
+            Value_Max = FinalValueFactor;
+        } 
+
+        if (Value_Min > FinalValueFactor) {
+            Value_Min = FinalValueFactor;
+        }
+       
+
         float AdjustedAmount = 100.f * FinalValueFactor;
 
-
-        // ---------------- DISTANCE distribution ----------------
-        // hier Gewichtung, wie viele Nodes wo entstehen
-        float DistanceWeight = FMath::Lerp(1.0f, Normalized, 1.0f - UniformDistanceDistribution);
-        // z. B. in die Wahrscheinlichkeit einfließen lassen
-        if (Stream.FRand() > DistanceWeight)
-        {
-            continue; // diesen Punkt überspringen, weniger Dichte außen/innen
-        }
-
+        UE_LOG(LogTemp, Log, TEXT("Normalized: %f FinalValueFactor: %f"), Normalized, FinalValueFactor);
+       
+        // Node spawnen
         AResourceNode* Node = SpawnResourceAt(P, Stream);
+        Node->ResourceAmount = FinalValueFactor;
+        Nodes.Add(Node);
+    }
+
+    for (AResourceNode* Node : Nodes)
+    {
         if (Node)
         {
-            Node->ResourceAmount = AdjustedAmount;
-
-            // normalize between 0 and 1 based on ResourceAmount (relative to 100 default)
-            float NormalizedValue = FMath::Clamp(Node->ResourceAmount / 100.f, 0.f, 1.f);
-
-            float ScaleFactor = FMath::Lerp(ResourceScaleMin, ResourceScaleMax, NormalizedValue);
+            float ResourceAmountNormalized = (Node->ResourceAmount - Value_Min) / (Value_Max - Value_Min);
+            float ScaleFactor = FMath::Lerp(ResourceScaleMin, ResourceScaleMax, ResourceAmountNormalized);
+            UE_LOG(LogTemp, Log, TEXT("ResourceAmount: %f"), Node->ResourceAmount);
+            UE_LOG(LogTemp, Log, TEXT("ResourceAmountNormalized: %f ScaleFactor: %f"), ResourceAmountNormalized, ScaleFactor);
             Node->SetActorScale3D(FVector(ScaleFactor));
-        
         }
     }
+
+    //for (const fvector& p : points)
+    //{
+
+
+    //}
 }
+
 
 AResourceNode* AResourceAreaVolume::SpawnResourceAt(const FVector& Location, FRandomStream& Stream)
 {
