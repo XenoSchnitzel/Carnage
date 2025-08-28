@@ -36,7 +36,7 @@ public:
     UPROPERTY(EditAnywhere, Category = "Resource|Scaling", meta = (ClampMin = 0.01, ClampMax = 100.0))
     float ResourceScaleMax = 4.0f;
 
-    UPROPERTY(EditAnywhere, Category = "Resource|General", meta = (ClampMin = 1)
+    UPROPERTY(EditAnywhere, Category = "Resource|General", meta = (ClampMin = 1))
     int32 TotalResources = 1000;
 
     //This distributes resources, Less, when beeing away from the center, more when beeing close to the center
