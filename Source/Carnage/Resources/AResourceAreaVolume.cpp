@@ -59,17 +59,35 @@ void AResourceAreaVolume::GenerateResources()
         const float Distance = FVector2D::Distance(FVector2D(P.X, P.Y), Center);
         const float Normalized = FMath::Clamp(Distance / MaxDist, 0.f, 1.f);
 
-        const float MinFactor = 0.1f;  // Rand
-        const float MaxFactor = 2.0f;  // Zentrum
-        const float NonUniformFactor = FMath::Lerp(MaxFactor, MinFactor, Normalized);
-        const float FinalFactor = FMath::Lerp(1.0f, NonUniformFactor, 1.0f - DistributionUniformity);
+        // ---------------- VALUE distribution ----------------
+        const float MinFactor = 0.1f;   // Rand
+        const float MaxFactor = 2.0f;   // Zentrum
+        const float NonUniformValue = FMath::Lerp(MaxFactor, MinFactor, Normalized);
+        const float FinalValueFactor = FMath::Lerp(1.0f, NonUniformValue, 1.0f - UniformValueDistribution);
 
-        float AdjustedAmount = 100.f * FinalFactor;
+        float AdjustedAmount = 100.f * FinalValueFactor;
+
+
+        // ---------------- DISTANCE distribution ----------------
+        // hier Gewichtung, wie viele Nodes wo entstehen
+        float DistanceWeight = FMath::Lerp(1.0f, Normalized, 1.0f - UniformDistanceDistribution);
+        // z. B. in die Wahrscheinlichkeit einfließen lassen
+        if (Stream.FRand() > DistanceWeight)
+        {
+            continue; // diesen Punkt überspringen, weniger Dichte außen/innen
+        }
 
         AResourceNode* Node = SpawnResourceAt(P, Stream);
         if (Node)
         {
             Node->ResourceAmount = AdjustedAmount;
+
+            // normalize between 0 and 1 based on ResourceAmount (relative to 100 default)
+            float NormalizedValue = FMath::Clamp(Node->ResourceAmount / 100.f, 0.f, 1.f);
+
+            float ScaleFactor = FMath::Lerp(ResourceScaleMin, ResourceScaleMax, NormalizedValue);
+            Node->SetActorScale3D(FVector(ScaleFactor));
+        
         }
     }
 }
@@ -79,10 +97,12 @@ AResourceNode* AResourceAreaVolume::SpawnResourceAt(const FVector& Location, FRa
     FActorSpawnParameters Params;
     Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
 
+    FRotator RandomRot(0.f, Stream.FRandRange(0.f, 360.f), 0.f);
+
     AResourceNode* Node = GetWorld()->SpawnActor<AResourceNode>(
         ResourceNodeClass,
         Location,
-        FRotator::ZeroRotator,
+        RandomRot,
         Params
     );
 
