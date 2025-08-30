@@ -2,10 +2,10 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/HUD.h"
-#include "MyHUD.generated.h"
+#include "ACarnageHUD.generated.h"
 
 UCLASS()
-class CARNAGE_API AMyHUD : public AHUD
+class CARNAGE_API ACarnageHUD : public AHUD
 {
     GENERATED_BODY()
 

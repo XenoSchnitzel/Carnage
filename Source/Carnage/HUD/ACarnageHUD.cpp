@@ -1,4 +1,4 @@
-#include "MyHUD.h"
+#include "ACarnageHUD.h"
 #include "Minimap.h"
 #include "../PlayerController/CameraPawn.h"
 #include "../GameState/ACarnageGameState.h"
@@ -6,7 +6,7 @@
 #include "Engine/Canvas.h"
 #include "GameFramework/PlayerController.h"
 
-void AMyHUD::BeginPlay()
+void ACarnageHUD::BeginPlay()
 {
     Super::BeginPlay();
 
@@ -26,7 +26,7 @@ void AMyHUD::BeginPlay()
     }
 }
 
-void AMyHUD::DrawHUD()
+void ACarnageHUD::DrawHUD()
 {
     Super::DrawHUD();
     if (!Minimap) return;
@@ -35,7 +35,7 @@ void AMyHUD::DrawHUD()
     DrawUnits();
 }
 
-void AMyHUD::DrawMinimap()
+void ACarnageHUD::DrawMinimap()
 {
     FMinimapFrameData Data = Minimap->GetFrameData();
 
@@ -56,7 +56,7 @@ void AMyHUD::DrawMinimap()
     }
 }
 
-void AMyHUD::DrawUnits()
+void ACarnageHUD::DrawUnits()
 {
     ACarnageGameState* GS = GetWorld() ? GetWorld()->GetGameState<ACarnageGameState>() : nullptr;
     if (!GS || !Minimap) return;
