@@ -20,6 +20,7 @@ public class Carnage : ModuleRules
 				"NavigationSystem",
 				"AIModule",
 				"Niagara",
-				"PhysicsCore" });
+				"PhysicsCore",
+				"Landscape" });
     }
 }

@@ -227,12 +227,6 @@ void AResourceAreaVolume::GenerateResources()
             Node->SetActorScale3D(FVector(ScaleFactor));
         }
     }
-
-    //for (const fvector& p : points)
-    //{
-
-
-    //}
 }
 
 
