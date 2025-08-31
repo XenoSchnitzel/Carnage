@@ -36,8 +36,8 @@ class CARNAGE_API ACameraPawn : public APawn
 	FVector CurrentSideVel;
 	double CurrentSpringArmRotationVelocity;
 
-	TArray<float> ZoomLevels = { 3000.0f, 6000.0f};
-	int32 CurrentZoomIndex = 0; // Start bei 3000
+	TArray<float> ZoomLevels = { 1500.0f, 3000.0f, 4500.0f, 6000.0f, 7500.0f};
+	int32 CurrentZoomIndex = 1; // Start bei 3000
 	float ZoomInterpSpeed = 5.0f;
 	float TargetZoomLength = 3000.0f;
 	bool bIsMouseRotating = false;

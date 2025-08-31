@@ -12,6 +12,10 @@ class CARNAGE_API AResourceAreaVolume : public AActor
 {
     GENERATED_BODY()
 
+    // Alle Nodes, die dieses Volume generiert und verwaltet
+    UPROPERTY()
+    TArray<AResourceNode*> Nodes;
+
 public:
     AResourceAreaVolume();
 
@@ -63,6 +67,9 @@ public:
 
     UFUNCTION(CallInEditor, Category = "Resource")
     void ClearResources();
+
+    UFUNCTION(BlueprintCallable, Category = "Distance")
+    AResourceNode* GetNextUnoccupiedResourceNode( FVector location);
 
 private:
     TArray<FVector> GeneratePointsInPolygon(int32 Count);

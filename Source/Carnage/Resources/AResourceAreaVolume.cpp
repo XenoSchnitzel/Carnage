@@ -6,6 +6,7 @@
 #include "ThirdParty/earcut.hpp"
 #include <numeric>
 #include <array>
+#include "Kismet/GameplayStatics.h"
 
 static bool IsPointInPolygon(const FVector2D& P, const TArray<FVector2D>& Poly)
 {
@@ -137,10 +138,58 @@ void AResourceAreaVolume::ClearResources()
     }
 }
 
+AResourceNode* AResourceAreaVolume::GetNextUnoccupiedResourceNode(FVector location)
+{
+    AResourceNode* NearestTotallyUnoccupied = nullptr;
+    AResourceNode* NearestPreOccupied = nullptr;
+    float MinDistSqrNearestTotallyUnoccupied = TNumericLimits<float>::Max();
+    float MinDistSqrNearestPreOccupied = TNumericLimits<float>::Max();
+
+    for (AResourceNode* Node : Nodes)
+    {
+        if (!Node) {
+            continue;
+        }
+
+        if (!Node->b_isOccupied)
+        {
+            float DistSqr = FVector::DistSquared(Node->GetActorLocation(), location);
+         
+            if (!Node->b_isPreOccupied) {
+                if (DistSqr < MinDistSqrNearestPreOccupied)
+                {
+                    MinDistSqrNearestPreOccupied = DistSqr;
+                    NearestPreOccupied = Node;
+                }
+            }
+         
+            if (DistSqr < MinDistSqrNearestTotallyUnoccupied)
+            {
+                MinDistSqrNearestTotallyUnoccupied = DistSqr;
+                NearestTotallyUnoccupied = Node;
+            }
+        }
+    }
+
+    if (NearestPreOccupied) {
+        NearestPreOccupied->b_isPreOccupied = true;
+        return NearestPreOccupied;
+    }
+
+    if (NearestTotallyUnoccupied) {
+        NearestTotallyUnoccupied->b_isPreOccupied = true;
+        return NearestTotallyUnoccupied;
+    }
+
+    return nullptr;
+}
+
 void AResourceAreaVolume::GenerateResources()
 {
     ClearResources();
     if (!ResourceNodeClass) return;
+
+    Nodes.Empty();   // <--- clear old List
 
     FRandomStream Stream(GenerationSeed);
 
@@ -166,8 +215,6 @@ void AResourceAreaVolume::GenerateResources()
 
     float Value_Max = -FLT_MAX;
     float Value_Min = FLT_MAX;
-    TArray<AResourceNode*> Nodes;
-
 
     for (const FVector& P : Points)
     {
@@ -212,7 +259,8 @@ void AResourceAreaVolume::GenerateResources()
        
         // Node spawnen
         AResourceNode* Node = SpawnResourceAt(P, Stream);
-        Node->ResourceAmount = FinalValueFactor;
+        Node->ResourceAmount = AdjustedAmount;
+        Node->ParentArea = this;
         Nodes.Add(Node);
     }
 
@@ -220,7 +268,7 @@ void AResourceAreaVolume::GenerateResources()
     {
         if (Node)
         {
-            float ResourceAmountNormalized = (Node->ResourceAmount - Value_Min) / (Value_Max - Value_Min);
+            float ResourceAmountNormalized = (Node->AdjustedAmount - Value_Min) / (Value_Max - Value_Min);
             float ScaleFactor = FMath::Lerp(ResourceScaleMin, ResourceScaleMax, ResourceAmountNormalized);
             UE_LOG(LogTemp, Log, TEXT("ResourceAmount: %f"), Node->ResourceAmount);
             UE_LOG(LogTemp, Log, TEXT("ResourceAmountNormalized: %f ScaleFactor: %f"), ResourceAmountNormalized, ScaleFactor);
