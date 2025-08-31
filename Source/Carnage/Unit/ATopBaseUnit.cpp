@@ -10,6 +10,7 @@
 #include "AITypes.h"  // for FAIRequestID
 #include "NiagaraFunctionLibrary.h"   // für UNiagaraFunctionLibrary::SpawnSystemAtLocation
 #include "NiagaraSystem.h"            // für UNiagaraSystem (Asset-Klasse)
+#include "NavigationSystem.h"
 
 #include "../Decals/DecalManager.h"
 #include "../Decals/DecalLibrary.h"
@@ -18,8 +19,54 @@
 
 #include "../Logging/StateLogger.h"
 #include "../SpatialStorage/RTSUnitManagerComponent.h"
+
+#include <Carnage\Resources\AResourceNode.h>
+
 #include "EUnitStates.h"
 
+
+FVector GetNavMeshTargetNearActor(AActor* Building, AActor* Unit, float Buffer, UWorld* World)
+{
+	if (!Building || !Unit || !World)
+	{
+		return FVector::ZeroVector;
+	}
+
+	UNavigationSystemV1* NavSys = UNavigationSystemV1::GetCurrent(World);
+	if (!NavSys)
+	{
+		return FVector::ZeroVector;
+	}
+
+	// Bounding Box des Gebäudes
+	FBox Bounds = Building->GetComponentsBoundingBox();
+	FVector Center = Bounds.GetCenter();
+
+	// Richtung von der Unit zum Gebäudezentrum
+	FVector Dir = (Center - Unit->GetActorLocation()).GetSafeNormal();
+
+	// Nächstgelegener Punkt der Bounds zur Unit
+	FVector ClosestPoint = Bounds.GetClosestPointTo(Unit->GetActorLocation());
+
+	// Einen Buffer weiter nach außen schieben
+	FVector Target = ClosestPoint + Dir * Buffer;
+
+	// Auf NavMesh projizieren
+	FNavLocation ProjectedLoc;
+	if (NavSys->ProjectPointToNavigation(Target, ProjectedLoc, FVector(500, 500, 500)))
+	{
+		return ProjectedLoc.Location;
+	}
+
+	// Falls das fehlschlägt → als Fallback das nächstgelegene NavMesh im Umkreis des Gebäudes nehmen
+	if (NavSys->ProjectPointToNavigation(Center, ProjectedLoc, FVector(2000, 2000, 2000)))
+	{
+		return ProjectedLoc.Location;
+	}
+
+	// Nichts gefunden
+	return FVector::ZeroVector;
+}
 
 
 #pragma region Construction
@@ -199,6 +246,45 @@ void ATopBaseUnit::StopCommand()
 	SetUnitState(EUnitMakroState::UnitMakroState_Idle, EUnitMikroState::UnitMikroState_Idle_Chilling);
 }
 
+void ATopBaseUnit::MiningResourceCommand_Implementation(AResourceNode* miningNode) {
+
+	SetUnitState(EUnitMakroState::UnitMakroState_Mining,
+		EUnitMikroState::UnitMikroState_Mining_Move_To_Resource);
+
+	InvalidateMiningTarget();
+
+	MiningTarget = miningNode;
+
+	AAIController* AI = UAIBlueprintHelperLibrary::GetAIController(this);
+	if (!AI) { return; }
+
+	// (Re)bind finish handler on the path following component
+	if (UPathFollowingComponent* PF = AI->GetPathFollowingComponent())
+	{
+		PF->OnRequestFinished.RemoveAll(this); // avoid duplicate bindings
+		PF->OnRequestFinished.AddUObject(this, &ATopBaseUnit::OnMoveRequestFinished);
+	}
+
+	// Issue the move. This mirrors the BP pin setup: AcceptanceRadius=150, StopOnOverlap=false,
+	// UsePathfinding=true, CanStrafe=false, AllowPartialPath=true.
+	const EPathFollowingRequestResult::Type MoveRes =
+		AI->MoveToActor(/*Goal*/ miningNode,
+			/*AcceptanceRadius*/ 150.f,
+			/*bStopOnOverlap*/   false,
+			/*bUsePathfinding*/  true,
+			/*bCanStrafe*/       false,
+			/*FilterClass*/      nullptr,
+			/*bAllowPartialPath*/true);
+
+	// Immediate failure (no path etc.) -> mimic OnRequestFailed behavior
+	if (MoveRes == EPathFollowingRequestResult::Failed)
+	{
+		SetUnitState(EUnitMakroState::UnitMakroState_Idle,
+			EUnitMikroState::UnitMikroState_Idle_Chilling);
+		return;
+	}
+}
+
 void ATopBaseUnit::MoveToCommand_Implementation(const FVector& NewPos)
 {
 	// Update state
@@ -288,6 +374,13 @@ void ATopBaseUnit::SetUnitState(EUnitMakroState newMakroState, EUnitMikroState n
 			break;
 		}
 
+		case EUnitMakroState::UnitMakroState_Mining:
+
+			if (newMakroState != EUnitMakroState::UnitMakroState_Mining) {
+				InvalidateMiningTarget();
+			}
+			break;
+
 		case EUnitMakroState::UnitMakroState_Dead:
 			return;
 
@@ -360,6 +453,100 @@ void ATopBaseUnit::MovingState(float DeltaSeconds)
 
 		}
 	}
+}
+
+
+void ATopBaseUnit::MiningState(float DeltaSeconds)
+{
+	switch (ECurrentUnitMikroState) {
+	case EUnitMikroState::UnitMikroState_Mining_Move_To_Resource:
+		MiningMoveToState(DeltaSeconds);
+		break;
+	case EUnitMikroState::UnitMikroState_Mining_Move_From_Resource:
+		MiningMoveFromState(DeltaSeconds);
+		break;
+	case EUnitMikroState::UnitMikroState_Mining_At_Resource:
+		MiningAtState(DeltaSeconds);
+		break;
+	default:
+		checkf(false, TEXT("Unhandled MikroState in MiningState: %s"),
+			*UEnum::GetValueAsString(ECurrentUnitMikroState));
+		break;
+	}
+}
+
+void ATopBaseUnit::MiningMoveToState(float DeltaSeconds)
+{
+
+}
+
+void ATopBaseUnit::MiningMoveFromState(float DeltaSeconds)
+{
+
+}
+
+void ATopBaseUnit::MiningAtState(float DeltaSeconds)
+{
+	//TODO: Change into Mining Component or something
+	if (p_fStateTimeCounter >= 1.0f) {
+
+		//TODO: Take money from crystal $$$
+
+		ACarnageGameState* GS = GetWorld() ? GetWorld()->GetGameState<ACarnageGameState>() : nullptr;
+
+		AActor* baseBuilding = GS->GetFactionById(this->FactionId)->GetMainBaseBuilding();
+
+		AAIController* AI = UAIBlueprintHelperLibrary::GetAIController(this);
+		if (!AI) { return; }
+
+
+		// Enter moving state
+		SetUnitState(EUnitMakroState::UnitMakroState_Mining,
+			EUnitMikroState::UnitMikroState_Move_FromMining);
+
+		// (Re)bind finish handler on the path following component
+		if (UPathFollowingComponent* PF = AI->GetPathFollowingComponent())
+		{
+			PF->OnRequestFinished.RemoveAll(this); // avoid duplicate bindings
+			PF->OnRequestFinished.AddUObject(this, &ATopBaseUnit::OnMoveRequestFinished);
+		}
+
+		FVector TargetLoc = GetNavMeshTargetNearActor(baseBuilding, this, 200.f, GetWorld());
+
+
+		/*UE_LOG(LogTemp, Warning, TEXT("BaseBuilding Location: %s"), *baseBuilding->GetActorLocation().ToString());
+		UNavigationSystemV1* NavSys = UNavigationSystemV1::GetCurrent(GetWorld());
+		FNavLocation OutLoc;
+		bool bOnNav = NavSys->ProjectPointToNavigation(baseBuilding->GetActorLocation(), OutLoc);
+		UE_LOG(LogTemp, Warning, TEXT("Projected to NavMesh: %d -> %s"), bOnNav, *OutLoc.Location.ToString());*/
+
+		// Issue the move. This mirrors the BP pin setup: AcceptanceRadius=150, StopOnOverlap=false,
+		// UsePathfinding=true, CanStrafe=false, AllowPartialPath=true.
+	// Issue the move (like AIMoveTo, but directly through AIController)
+
+		if (!TargetLoc.IsZero())
+		{
+			const EPathFollowingRequestResult::Type MoveRes =
+				AI->MoveToLocation(
+					/*GoalLocation*/ TargetLoc,
+					/*AcceptanceRadius*/ 150.f,
+					/*bStopOnOverlap*/ true,
+					/*bUsePathfinding*/ true,
+					/*bProjectDestination*/ true,
+					/*bcanStrafe*/ true,
+					/*FilterClass*/ nullptr,
+					/*bAllowPartialPath*/ false);
+
+			// Immediate failure (no path etc.) -> mimic OnRequestFailed behavior
+			if (MoveRes == EPathFollowingRequestResult::Failed)
+			{
+				SetUnitState(EUnitMakroState::UnitMakroState_Idle,
+					EUnitMikroState::UnitMikroState_Idle_Chilling);
+				return;
+			}
+		}
+	}
+
 }
 
 void ATopBaseUnit::AttackingState(float DeltaSeconds)
@@ -462,6 +649,9 @@ void ATopBaseUnit::Tick(float DeltaTime)
 			break;
 		case EUnitMakroState::UnitMakroState_Attacking:
 			AttackingState(DeltaTime);
+			break;
+		case EUnitMakroState::UnitMakroState_Mining:
+			MiningState(DeltaTime);
 			break;
 		default:
 			//checkf(false, TEXT("Unhandled MikroState in AttackingState: %s"),
@@ -673,6 +863,16 @@ void ATopBaseUnit::InvalidateAttackTarget()
 
 }
 
+void ATopBaseUnit::InvalidateMiningTarget()
+{
+
+	//TODO: Handle coppling of "mined out" events
+
+	// Clear reference since target is gone
+	MiningTarget = nullptr;
+
+}
+
 // --- Returns closest enemy unit, distance and a success flag ---
 FClosestEnemyResult ATopBaseUnit::GetClosestEnemyUnit() const
 {
@@ -800,8 +1000,25 @@ void ATopBaseUnit::OnMoveRequestFinished(FAIRequestID /*RequestID*/, const FPath
 	if (Result.IsSuccess())
 	{
 		STATE_LOG(this, Log, "Move success");
-		SetUnitState(EUnitMakroState::UnitMakroState_Idle,
-			EUnitMikroState::UnitMikroState_Idle_Chilling);
+
+		if (ECurrentUnitMakroState == EUnitMakroState::UnitMakroState_Mining) {
+
+			if (ECurrentUnitMikroState == EUnitMikroState::UnitMikroState_Mining_Move_From_Resource) {
+				
+				//TODO: Add Money to bank $$$
+
+				MiningResourceCommand_Implementation(MiningTarget);
+
+			}
+			else { //Mining To Resource state
+				SetUnitState(EUnitMakroState::UnitMakroState_Mining,
+					EUnitMikroState::UnitMikroState_Mining_At_Resource);
+			}
+		}
+		else {
+			SetUnitState(EUnitMakroState::UnitMakroState_Idle,
+				EUnitMikroState::UnitMikroState_Idle_Chilling);
+		}
 	}
 	else
 	{

@@ -8,7 +8,10 @@
 #include "UHitpointComponent.h"
 #include "EUnitStates.h"
 
+#include <Carnage\Resources\AResourceNode.h>
+
 #include "ATopBaseUnit.generated.h"
+
 
 // ADD (above the class, after includes)
 struct FAIRequestID;
@@ -51,6 +54,9 @@ class ATopBaseUnit : public ACharacter
 	/** Clear references, remove delegates, ...*/
 	void InvalidateAttackTarget();
 
+	/** Clear references, remove delegates, ...*/
+	void InvalidateMiningTarget();
+
 
 #pragma region State_Machine
 
@@ -59,6 +65,12 @@ class ATopBaseUnit : public ACharacter
 
 	void IdleState(float DeltaSeconds);
 	void MovingState(float DeltaSeconds);
+	void MiningState(float DeltaSeconds);
+
+	void MiningMoveToState(float DeltaSeconds);
+	void MiningMoveFromState(float DeltaSeconds);
+	void MiningAtState(float DeltaSeconds);
+
 	void AttackingState(float DeltaSeconds);
 
 	void AttackRotateState(float DeltaSeconds);
@@ -158,6 +170,9 @@ public:
 	AActor* AttackTarget = nullptr;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere)
+	AResourceNode* MiningTarget = nullptr;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere)
 	EFaction FactionId;
 
 	// Toggle per instance in Editor/PIE and per Code
@@ -202,6 +217,10 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Unit|Movement")
 	void MoveToCommand(const FVector& NewPos);
 	virtual void MoveToCommand_Implementation(const FVector& NewPos); 
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Unit|Movement")
+	void MiningResourceCommand(AResourceNode* miningNode);
+	virtual void MiningResourceCommand_Implementation(AResourceNode* miningNode);
 
 #pragma endregion
 

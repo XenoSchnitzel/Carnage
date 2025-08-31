@@ -12,6 +12,7 @@ enum class EUnitMakroState : uint8
 	UnitMakroState_Attacking		UMETA(DisplayName = "Attacking"),
 	UnitMakroState_Patrolling		UMETA(DisplayName = "Patrolling"),
 	UnitMakroState_Pacifisting		UMETA(DisplayName = "Pacifisting"),
+	UnitMakroState_Mining			UMETA(DisplayName = "Mining"),
 	UnitMakroState_Dead				UMETA(DisplayName = "Dead")
 };
 
@@ -32,6 +33,10 @@ enum class EUnitMikroState : uint8
 	UnitMikroState_Move_Direct_Move				UMETA(DisplayName = "Move_Direct"),
 	UnitMikroState_Move_Attack_Move				UMETA(DisplayName = "Move_Attack"),
 	UnitMikroState_Move_To_Mining				UMETA(DisplayName = "Move_To_Mining"),
-	UnitMikroState_Move_FromMining				UMETA(DisplayName = "Move_From_Mining")
+	UnitMikroState_Move_FromMining				UMETA(DisplayName = "Move_From_Mining"),
+
+	UnitMikroState_Mining_Move_To_Resource		UMETA(DisplayName = "Mining_Move_To_Resource"),
+	UnitMikroState_Mining_Move_From_Resource	UMETA(DisplayName = "Mining_Movet_From_Resource"),
+	UnitMikroState_Mining_At_Resource			UMETA(DisplayName = "Mining_At_Resource")
 };
 
