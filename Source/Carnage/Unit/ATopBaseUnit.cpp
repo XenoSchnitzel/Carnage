@@ -492,59 +492,59 @@ void ATopBaseUnit::MiningAtState(float DeltaSeconds)
 
 		//TODO: Take money from crystal $$$
 
-		ACarnageGameState* GS = GetWorld() ? GetWorld()->GetGameState<ACarnageGameState>() : nullptr;
+	//	ACarnageGameState* GS = GetWorld() ? GetWorld()->GetGameState<ACarnageGameState>() : nullptr;
 
-		AActor* baseBuilding = GS->GetFactionById(this->FactionId)->GetMainBaseBuilding();
+	//	AActor* baseBuilding = GS->GetFactionById(this->FactionId)->GetMainBaseBuilding();
 
-		AAIController* AI = UAIBlueprintHelperLibrary::GetAIController(this);
-		if (!AI) { return; }
-
-
-		// Enter moving state
-		SetUnitState(EUnitMakroState::UnitMakroState_Mining,
-			EUnitMikroState::UnitMikroState_Move_FromMining);
-
-		// (Re)bind finish handler on the path following component
-		if (UPathFollowingComponent* PF = AI->GetPathFollowingComponent())
-		{
-			PF->OnRequestFinished.RemoveAll(this); // avoid duplicate bindings
-			PF->OnRequestFinished.AddUObject(this, &ATopBaseUnit::OnMoveRequestFinished);
-		}
-
-		FVector TargetLoc = GetNavMeshTargetNearActor(baseBuilding, this, 200.f, GetWorld());
+	//	AAIController* AI = UAIBlueprintHelperLibrary::GetAIController(this);
+	//	if (!AI) { return; }
 
 
-		/*UE_LOG(LogTemp, Warning, TEXT("BaseBuilding Location: %s"), *baseBuilding->GetActorLocation().ToString());
-		UNavigationSystemV1* NavSys = UNavigationSystemV1::GetCurrent(GetWorld());
-		FNavLocation OutLoc;
-		bool bOnNav = NavSys->ProjectPointToNavigation(baseBuilding->GetActorLocation(), OutLoc);
-		UE_LOG(LogTemp, Warning, TEXT("Projected to NavMesh: %d -> %s"), bOnNav, *OutLoc.Location.ToString());*/
+	//	// Enter moving state
+	//	SetUnitState(EUnitMakroState::UnitMakroState_Mining,
+	//		EUnitMikroState::UnitMikroState_Move_FromMining);
 
-		// Issue the move. This mirrors the BP pin setup: AcceptanceRadius=150, StopOnOverlap=false,
-		// UsePathfinding=true, CanStrafe=false, AllowPartialPath=true.
-	// Issue the move (like AIMoveTo, but directly through AIController)
+	//	// (Re)bind finish handler on the path following component
+	//	if (UPathFollowingComponent* PF = AI->GetPathFollowingComponent())
+	//	{
+	//		PF->OnRequestFinished.RemoveAll(this); // avoid duplicate bindings
+	//		PF->OnRequestFinished.AddUObject(this, &ATopBaseUnit::OnMoveRequestFinished);
+	//	}
 
-		if (!TargetLoc.IsZero())
-		{
-			const EPathFollowingRequestResult::Type MoveRes =
-				AI->MoveToLocation(
-					/*GoalLocation*/ TargetLoc,
-					/*AcceptanceRadius*/ 150.f,
-					/*bStopOnOverlap*/ true,
-					/*bUsePathfinding*/ true,
-					/*bProjectDestination*/ true,
-					/*bcanStrafe*/ true,
-					/*FilterClass*/ nullptr,
-					/*bAllowPartialPath*/ false);
+	//	FVector TargetLoc = GetNavMeshTargetNearActor(baseBuilding, this, 200.f, GetWorld());
 
-			// Immediate failure (no path etc.) -> mimic OnRequestFailed behavior
-			if (MoveRes == EPathFollowingRequestResult::Failed)
-			{
-				SetUnitState(EUnitMakroState::UnitMakroState_Idle,
-					EUnitMikroState::UnitMikroState_Idle_Chilling);
-				return;
-			}
-		}
+
+	//	/*UE_LOG(LogTemp, Warning, TEXT("BaseBuilding Location: %s"), *baseBuilding->GetActorLocation().ToString());
+	//	UNavigationSystemV1* NavSys = UNavigationSystemV1::GetCurrent(GetWorld());
+	//	FNavLocation OutLoc;
+	//	bool bOnNav = NavSys->ProjectPointToNavigation(baseBuilding->GetActorLocation(), OutLoc);
+	//	UE_LOG(LogTemp, Warning, TEXT("Projected to NavMesh: %d -> %s"), bOnNav, *OutLoc.Location.ToString());*/
+
+	//	// Issue the move. This mirrors the BP pin setup: AcceptanceRadius=150, StopOnOverlap=false,
+	//	// UsePathfinding=true, CanStrafe=false, AllowPartialPath=true.
+	//// Issue the move (like AIMoveTo, but directly through AIController)
+
+	//	if (!TargetLoc.IsZero())
+	//	{
+	//		const EPathFollowingRequestResult::Type MoveRes =
+	//			AI->MoveToLocation(
+	//				/*GoalLocation*/ TargetLoc,
+	//				/*AcceptanceRadius*/ 150.f,
+	//				/*bStopOnOverlap*/ true,
+	//				/*bUsePathfinding*/ true,
+	//				/*bProjectDestination*/ true,
+	//				/*bcanStrafe*/ true,
+	//				/*FilterClass*/ nullptr,
+	//				/*bAllowPartialPath*/ false);
+
+	//		// Immediate failure (no path etc.) -> mimic OnRequestFailed behavior
+	//		if (MoveRes == EPathFollowingRequestResult::Failed)
+	//		{
+	//			SetUnitState(EUnitMakroState::UnitMakroState_Idle,
+	//				EUnitMikroState::UnitMikroState_Idle_Chilling);
+	//			return;
+	//		}
+	//	}
 	}
 
 }

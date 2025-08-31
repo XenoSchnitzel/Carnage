@@ -60,8 +60,7 @@ class ATopBaseUnit : public ACharacter
 
 #pragma region State_Machine
 
-	//State changes always set this counter to zero
-	float p_fStateTimeCounter = 0.0f;
+
 
 	void IdleState(float DeltaSeconds);
 	void MovingState(float DeltaSeconds);
@@ -88,6 +87,10 @@ class ATopBaseUnit : public ACharacter
 #pragma endregion
 
 protected:
+
+	// State changes always set this counter to zero
+	UPROPERTY(BlueprintReadOnly, Category = "State")
+	float p_fStateTimeCounter = 0.0f;
 
 	UPROPERTY(BlueprintGetter = IsSelected, meta = (AllowPrivateAccess = "true"))
 	bool bIsSelected = false;
