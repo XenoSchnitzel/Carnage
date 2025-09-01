@@ -127,7 +127,7 @@ void ATopBaseUnit::OnHit_Implementation(ATopBaseUnit* Attacker)
 		SetUnitState(EUnitMakroState::UnitMakroState_Dead,
 			EUnitMikroState::UnitMikroState_NoSubState);
 
-		SetActorEnableCollision(false);
+		SetActorEnableCollision(true);
 
 		OnMyDeath();
 		BroadcastOnDeath();
@@ -797,6 +797,15 @@ bool ATopBaseUnit::TryAttackTarget() {
 
 				//Notify the other unit to make damage calculation
 				HitUnit->OnHit(this);
+
+
+				if (USkeletalMeshComponent* LeChuck = HitUnit->FindComponentByClass<USkeletalMeshComponent>())
+				{
+					FVector Impulse = attackVector.GetSafeNormal() * 300.0f;
+					//LeChuck->SetSimulatePhysics(true); // nur falls noch nicht aktiv
+					LeChuck->AddImpulseToAllBodiesBelow(Impulse, NAME_None, true);
+				}
+
 
 				return true; //Successful Hit
 			}

@@ -268,7 +268,7 @@ void AResourceAreaVolume::GenerateResources()
     {
         if (Node)
         {
-            float ResourceAmountNormalized = (Node->AdjustedAmount - Value_Min) / (Value_Max - Value_Min);
+            float ResourceAmountNormalized = (Node->ResourceAmount - Value_Min) / (Value_Max - Value_Min);
             float ScaleFactor = FMath::Lerp(ResourceScaleMin, ResourceScaleMax, ResourceAmountNormalized);
             UE_LOG(LogTemp, Log, TEXT("ResourceAmount: %f"), Node->ResourceAmount);
             UE_LOG(LogTemp, Log, TEXT("ResourceAmountNormalized: %f ScaleFactor: %f"), ResourceAmountNormalized, ScaleFactor);
