@@ -129,6 +129,7 @@ void ATopBaseUnit::OnHit_Implementation(ATopBaseUnit* Attacker)
 
 		SetActorEnableCollision(true);
 
+
 		OnMyDeath();
 		BroadcastOnDeath();
 	}
