@@ -798,11 +798,11 @@ bool ATopBaseUnit::TryAttackTarget() {
 				//Notify the other unit to make damage calculation
 				HitUnit->OnHit(this);
 
-
+				//This attack impulse is currently calculated in only after death, when physics enabled for ragdoll handling
+				// however the shot, that brings a unit to death should already be considered.
 				if (USkeletalMeshComponent* LeChuck = HitUnit->FindComponentByClass<USkeletalMeshComponent>())
 				{
 					FVector Impulse = attackVector.GetSafeNormal() * 300.0f;
-					//LeChuck->SetSimulatePhysics(true); // nur falls noch nicht aktiv
 					LeChuck->AddImpulseToAllBodiesBelow(Impulse, NAME_None, true);
 				}
 
