@@ -207,6 +207,23 @@ public:
 	 void DePreSelectUnit();
 	 virtual void DePreSelectUnit_Implementation();
 
+//mostly intended for blueprint to handle stuff like animation changes, etc.
+#pragma region StateChangeHandler 
+
+	 // Kann in Blueprints überschrieben werden, C++ muss nichts implementieren
+	 UFUNCTION(BlueprintImplementableEvent, Category = "StateChangeHandler")
+	 void StartMovementHandler();
+
+	 //// Kann in Blueprints überschrieben werden, C++ muss nichts implementieren
+	 //UFUNCTION(BlueprintImplementableEvent, Category = "StateChangeHandler")
+	 //void StartAttackHandler();
+
+	 //// Kann in Blueprints überschrieben werden, C++ muss nichts implementieren
+	 //UFUNCTION(BlueprintImplementableEvent, Category = "StateChangeHandler")
+	 //void StopAttackHandler();
+
+#pragma endregion
+
 
 #pragma region Commands
 

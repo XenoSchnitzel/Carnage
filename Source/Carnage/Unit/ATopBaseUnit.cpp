@@ -348,6 +348,7 @@ void ATopBaseUnit::SetUnitState(EUnitMakroState newMakroState, EUnitMikroState n
 
 	switch (ECurrentUnitMakroState)
 	{
+
 		case EUnitMakroState::UnitMakroState_Moving:
 		{
 			AAIController* AI = UAIBlueprintHelperLibrary::GetAIController(this);
@@ -360,6 +361,12 @@ void ATopBaseUnit::SetUnitState(EUnitMakroState newMakroState, EUnitMikroState n
 			{
 				AI->StopMovement();
 			}
+
+			if (USkeletalMeshComponent* MeshComp = GetMesh())
+			{
+				MeshComp->Stop(); //Stop movement animation
+			}
+
 			break;
 		}
 
@@ -387,6 +394,10 @@ void ATopBaseUnit::SetUnitState(EUnitMakroState newMakroState, EUnitMikroState n
 
 		default:
 			break;
+	}
+
+	if (newMakroState == EUnitMakroState::UnitMakroState_Moving) {
+		StartMovementHandler();
 	}
 
 	ECurrentUnitMakroState = newMakroState;
