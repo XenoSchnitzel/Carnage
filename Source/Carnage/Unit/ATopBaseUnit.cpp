@@ -25,50 +25,6 @@
 #include "EUnitStates.h"
 
 
-FVector GetNavMeshTargetNearActor(AActor* Building, AActor* Unit, float Buffer, UWorld* World)
-{
-	if (!Building || !Unit || !World)
-	{
-		return FVector::ZeroVector;
-	}
-
-	UNavigationSystemV1* NavSys = UNavigationSystemV1::GetCurrent(World);
-	if (!NavSys)
-	{
-		return FVector::ZeroVector;
-	}
-
-	// Bounding Box des Gebäudes
-	FBox Bounds = Building->GetComponentsBoundingBox();
-	FVector Center = Bounds.GetCenter();
-
-	// Richtung von der Unit zum Gebäudezentrum
-	FVector Dir = (Center - Unit->GetActorLocation()).GetSafeNormal();
-
-	// Nächstgelegener Punkt der Bounds zur Unit
-	FVector ClosestPoint = Bounds.GetClosestPointTo(Unit->GetActorLocation());
-
-	// Einen Buffer weiter nach außen schieben
-	FVector Target = ClosestPoint + Dir * Buffer;
-
-	// Auf NavMesh projizieren
-	FNavLocation ProjectedLoc;
-	if (NavSys->ProjectPointToNavigation(Target, ProjectedLoc, FVector(500, 500, 500)))
-	{
-		return ProjectedLoc.Location;
-	}
-
-	// Falls das fehlschlägt → als Fallback das nächstgelegene NavMesh im Umkreis des Gebäudes nehmen
-	if (NavSys->ProjectPointToNavigation(Center, ProjectedLoc, FVector(2000, 2000, 2000)))
-	{
-		return ProjectedLoc.Location;
-	}
-
-	// Nichts gefunden
-	return FVector::ZeroVector;
-}
-
-
 #pragma region Construction
 
 ATopBaseUnit::ATopBaseUnit()
@@ -219,7 +175,7 @@ void ATopBaseUnit::OnAttackTargetDeath_Implementation()
 	STATE_LOG(this, Log, "Attack target of %s has died", *GetName());
 
 
-	StopCommand();
+	Command_Stop();
 }
 
 
@@ -227,7 +183,7 @@ void ATopBaseUnit::OnAttackTargetDeath_Implementation()
 
 #pragma region Commands
 
-void ATopBaseUnit::StartAttackCommand_Implementation(ATopBaseUnit* attackTarget)
+void ATopBaseUnit::Command_StartAttack_Implementation(ATopBaseUnit* attackTarget)
 {
 	SetUnitState(EUnitMakroState::UnitMakroState_Attacking,
 		EUnitMikroState::UnitMikroState_Attack_Rotate);
@@ -242,12 +198,12 @@ void ATopBaseUnit::StartAttackCommand_Implementation(ATopBaseUnit* attackTarget)
 	
 }
 
-void ATopBaseUnit::StopCommand()
+void ATopBaseUnit::Command_Stop()
 {
 	SetUnitState(EUnitMakroState::UnitMakroState_Idle, EUnitMikroState::UnitMikroState_Idle_Chilling);
 }
 
-void ATopBaseUnit::MiningResourceCommand_Implementation(AResourceNode* miningNode) {
+void ATopBaseUnit::Command_MineResource_Implementation(AResourceNode* miningNode) {
 
 	SetUnitState(EUnitMakroState::UnitMakroState_Mining,
 		EUnitMikroState::UnitMikroState_Mining_Move_To_Resource);
@@ -286,7 +242,7 @@ void ATopBaseUnit::MiningResourceCommand_Implementation(AResourceNode* miningNod
 	}
 }
 
-void ATopBaseUnit::MoveToCommand_Implementation(const FVector& NewPos)
+void ATopBaseUnit::Command_MoveTo_Implementation(const FVector& NewPos)
 {
 	// Update state
 	SetUnitState(
@@ -411,11 +367,11 @@ void ATopBaseUnit::SetUnitState(EUnitMakroState newMakroState, EUnitMikroState n
 }
 
 
-void ATopBaseUnit::IdleState(float DeltaSeconds)
+void ATopBaseUnit::State_Idle(float DeltaSeconds)
 {
 	switch (ECurrentUnitMikroState) {
 	case EUnitMikroState::UnitMikroState_Idle_Chilling:
-		IdleChillingState(DeltaSeconds);
+		State_Idle_Chilling(DeltaSeconds);
 		break;
 	case EUnitMikroState::UnitMikroState_Idle_Cooldown:
 		IdleCooldownState(DeltaSeconds);
@@ -423,7 +379,7 @@ void ATopBaseUnit::IdleState(float DeltaSeconds)
 	}
 }
 
-void ATopBaseUnit::IdleChillingState(float DeltaSeconds) {
+void ATopBaseUnit::State_Idle_Chilling(float DeltaSeconds) {
 	bool AttackModeSuccesful = TryAutoAttackIfTargetIsWithinMinimumRange();
 
 	//TODO: Change this into a real AI Control for non humans player, that runs outside of state system
@@ -450,7 +406,7 @@ void ATopBaseUnit::IdleCooldownState(float DeltaSeconds) {
 	}
 }
 
-void ATopBaseUnit::MovingState(float DeltaSeconds)
+void ATopBaseUnit::State_Moving(float DeltaSeconds)
 {
 	// Access GameState and cast to ACarnageGameState
 	if (UWorld* World = GetWorld())
@@ -468,17 +424,17 @@ void ATopBaseUnit::MovingState(float DeltaSeconds)
 }
 
 
-void ATopBaseUnit::MiningState(float DeltaSeconds)
+void ATopBaseUnit::State_Mining(float DeltaSeconds)
 {
 	switch (ECurrentUnitMikroState) {
 	case EUnitMikroState::UnitMikroState_Mining_Move_To_Resource:
-		MiningMoveToState(DeltaSeconds);
+		State_Mining_MoveTo(DeltaSeconds);
 		break;
 	case EUnitMikroState::UnitMikroState_Mining_Move_From_Resource:
-		MiningMoveFromState(DeltaSeconds);
+		State_Mining_MoveFrom(DeltaSeconds);
 		break;
 	case EUnitMikroState::UnitMikroState_Mining_At_Resource:
-		MiningAtState(DeltaSeconds);
+		State_Mining_At(DeltaSeconds);
 		break;
 	default:
 		checkf(false, TEXT("Unhandled MikroState in MiningState: %s"),
@@ -487,17 +443,17 @@ void ATopBaseUnit::MiningState(float DeltaSeconds)
 	}
 }
 
-void ATopBaseUnit::MiningMoveToState(float DeltaSeconds)
+void ATopBaseUnit::State_Mining_MoveTo(float DeltaSeconds)
 {
 
 }
 
-void ATopBaseUnit::MiningMoveFromState(float DeltaSeconds)
+void ATopBaseUnit::State_Mining_MoveFrom(float DeltaSeconds)
 {
 
 }
 
-void ATopBaseUnit::MiningAtState(float DeltaSeconds)
+void ATopBaseUnit::State_Mining_At(float DeltaSeconds)
 {
 	//TODO: Change into Mining Component or something
 	if (p_fStateTimeCounter >= 1.0f) {
@@ -561,23 +517,23 @@ void ATopBaseUnit::MiningAtState(float DeltaSeconds)
 
 }
 
-void ATopBaseUnit::AttackingState(float DeltaSeconds)
+void ATopBaseUnit::State_Attacking(float DeltaSeconds)
 {
 	switch (ECurrentUnitMikroState) {
 	case EUnitMikroState::UnitMikroState_Attack_Rotate:
-		AttackRotateState(DeltaSeconds);
+		State_Attack_Rotate(DeltaSeconds);
 		break;
 	case EUnitMikroState::UnitMikroState_Attack_Start:
-		AttackStartState(DeltaSeconds);
+		State_Attack_Start(DeltaSeconds);
 		break;
 	case EUnitMikroState::UnitMikroState_Attack_Performing:
-		AttackPerfomingState(DeltaSeconds);
+		State_Attack_Performing(DeltaSeconds);
 		break;
 	case EUnitMikroState::UnitMikroState_Attack_Cooldown_Start:
-		AttackCooldownStartState(DeltaSeconds);
+		State_Attack_CooldownStart(DeltaSeconds);
 		break;
 	case EUnitMikroState::UnitMikroState_Attack_Cooldown_Performing:
-		AttackCooldownPeformingState(DeltaSeconds);
+		State_Attack_CooldownPerfoming(DeltaSeconds);
 		break;
 	default:
 		checkf(false, TEXT("Unhandled MikroState in AttackingState: %s"),
@@ -586,7 +542,7 @@ void ATopBaseUnit::AttackingState(float DeltaSeconds)
 	}
 }
 
-void ATopBaseUnit::AttackRotateState(float DeltaSeconds)
+void ATopBaseUnit::State_Attack_Rotate(float DeltaSeconds)
 {
 	// If target is not valid -> back to idle
 	if (!AttackTarget || !IsValid(AttackTarget)) {
@@ -606,7 +562,7 @@ void ATopBaseUnit::AttackRotateState(float DeltaSeconds)
 	}
 }
 
-void ATopBaseUnit::AttackStartState(float DeltaSeconds)
+void ATopBaseUnit::State_Attack_Start(float DeltaSeconds)
 {
 	if (TryAttackTarget()) {
 		this->ShowAttackIndicator(true);
@@ -620,7 +576,7 @@ void ATopBaseUnit::AttackStartState(float DeltaSeconds)
 	}
 }
 
-void ATopBaseUnit::AttackPerfomingState(float DeltaSeconds)
+void ATopBaseUnit::State_Attack_Performing(float DeltaSeconds)
 {
 	if (p_fStateTimeCounter >= AttackComponent->AttackTime) {
 		SetUnitState(EUnitMakroState::UnitMakroState_Attacking,
@@ -628,7 +584,7 @@ void ATopBaseUnit::AttackPerfomingState(float DeltaSeconds)
 	}
 }
 
-void ATopBaseUnit::AttackCooldownStartState(float DeltaSeconds)
+void ATopBaseUnit::State_Attack_CooldownStart(float DeltaSeconds)
 {
 	this->ShowAttackIndicator(false);
 	
@@ -636,7 +592,7 @@ void ATopBaseUnit::AttackCooldownStartState(float DeltaSeconds)
 		EUnitMikroState::UnitMikroState_Attack_Cooldown_Performing);
 }
 
-void ATopBaseUnit::AttackCooldownPeformingState(float DeltaSeconds)
+void ATopBaseUnit::State_Attack_CooldownPerfoming(float DeltaSeconds)
 {
 	if (p_fStateTimeCounter >= AttackComponent->CoolDownTime) {
 		SetUnitState(EUnitMakroState::UnitMakroState_Attacking,
@@ -654,16 +610,16 @@ void ATopBaseUnit::Tick(float DeltaTime)
 
 	switch (ECurrentUnitMakroState) {
 		case EUnitMakroState::UnitMakroState_Idle:
-			IdleState(DeltaTime);
+			State_Idle(DeltaTime);
 			break;
 		case EUnitMakroState::UnitMakroState_Moving:
-			MovingState(DeltaTime);
+			State_Moving(DeltaTime);
 			break;
 		case EUnitMakroState::UnitMakroState_Attacking:
-			AttackingState(DeltaTime);
+			State_Attacking(DeltaTime);
 			break;
 		case EUnitMakroState::UnitMakroState_Mining:
-			MiningState(DeltaTime);
+			State_Mining(DeltaTime);
 			break;
 		default:
 			//checkf(false, TEXT("Unhandled MikroState in AttackingState: %s"),
@@ -860,7 +816,7 @@ bool ATopBaseUnit::TryAutoAttackIfTargetIsWithinMinimumRange()
 	if (Closest.ClosestEnemyDistance < AttackComponent->MinRange)
 	{
 		// Start an attack command on this enemy
-		StartAttackCommand(Closest.ClosestEnemy);
+		Command_StartAttack(Closest.ClosestEnemy);
 		return true;
 	}
 
@@ -1028,7 +984,7 @@ void ATopBaseUnit::OnMoveRequestFinished(FAIRequestID /*RequestID*/, const FPath
 				
 				//TODO: Add Money to bank $$$
 
-				MiningResourceCommand_Implementation(MiningTarget);
+				Command_MineResource_Implementation(MiningTarget);
 
 			}
 			else { //Mining To Resource state

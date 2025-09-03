@@ -62,23 +62,23 @@ class ATopBaseUnit : public ACharacter
 
 
 
-	void IdleState(float DeltaSeconds);
-	void MovingState(float DeltaSeconds);
-	void MiningState(float DeltaSeconds);
+	void State_Idle(float DeltaSeconds);
+	void State_Moving(float DeltaSeconds);
+	void State_Mining(float DeltaSeconds);
 
-	void MiningMoveToState(float DeltaSeconds);
-	void MiningMoveFromState(float DeltaSeconds);
-	void MiningAtState(float DeltaSeconds);
+	void State_Mining_MoveTo(float DeltaSeconds);
+	void State_Mining_MoveFrom(float DeltaSeconds);
+	void State_Mining_At(float DeltaSeconds);
 
-	void AttackingState(float DeltaSeconds);
+	void State_Attacking(float DeltaSeconds);
 
-	void AttackRotateState(float DeltaSeconds);
-	void AttackStartState(float DeltaSeconds);
-	void AttackPerfomingState(float DeltaSeconds);
-	void AttackCooldownStartState(float DeltaSeconds);
-	void AttackCooldownPeformingState(float DeltaSeconds);
+	void State_Attack_Rotate(float DeltaSeconds);
+	void State_Attack_Start(float DeltaSeconds);
+	void State_Attack_Performing(float DeltaSeconds);
+	void State_Attack_CooldownStart(float DeltaSeconds);
+	void State_Attack_CooldownPerfoming(float DeltaSeconds);
 
-	void IdleChillingState(float DeltaSeconds);
+	void State_Idle_Chilling(float DeltaSeconds);
 	void IdleCooldownState(float DeltaSeconds);
 
 
@@ -228,19 +228,19 @@ public:
 #pragma region Commands
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Unit|Movement")
-	void StartAttackCommand(ATopBaseUnit* target);
-	virtual void StartAttackCommand_Implementation(ATopBaseUnit* attackTarget);
+	void Command_StartAttack(ATopBaseUnit* target);
+	virtual void Command_StartAttack_Implementation(ATopBaseUnit* attackTarget);
 
 	UFUNCTION(BlueprintCallable, Category = "Unit|Movement")
-	void StopCommand();
+	void Command_Stop();
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Unit|Movement")
-	void MoveToCommand(const FVector& NewPos);
-	virtual void MoveToCommand_Implementation(const FVector& NewPos); 
+	void Command_MoveTo(const FVector& NewPos);
+	virtual void Command_MoveTo_Implementation(const FVector& NewPos); 
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Unit|Movement")
-	void MiningResourceCommand(AResourceNode* miningNode);
-	virtual void MiningResourceCommand_Implementation(AResourceNode* miningNode);
+	void Command_MineResource(AResourceNode* miningNode);
+	virtual void Command_MineResource_Implementation(AResourceNode* miningNode);
 
 #pragma endregion
 
