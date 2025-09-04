@@ -92,6 +92,10 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = "State")
 	float p_fStateTimeCounter = 0.0f;
 
+	float p_fStateMovingTimer = 0.0f;
+
+	FVector currentMovementTarget;
+
 	UPROPERTY(BlueprintGetter = IsSelected, meta = (AllowPrivateAccess = "true"))
 	bool bIsSelected = false;
 
@@ -132,7 +136,7 @@ private:
 public:
 	/** Move towards the nearest enemy using AIController::MoveToActor (recommended C++ path). */
 	UFUNCTION(BlueprintCallable, Category = "Unit|Movement")
-	void MoveToNearestEnemy();
+	void MoveToNearestEnemy(const FVector& EnemyMovePosition, bool bHasPosition = false);
 
 	/** Event that gets fired when this unit dies */
 	UPROPERTY(BlueprintAssignable, Category = "Unit|Combat")
@@ -225,6 +229,8 @@ public:
 #pragma endregion
 
 
+//Commands are real screen commands, that the user could potentially directly order by a mouse click
+//However, commands can also be issued by the AI
 #pragma region Commands
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Unit|Movement")

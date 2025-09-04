@@ -233,6 +233,8 @@ void ATopBaseUnit::Command_MineResource_Implementation(AResourceNode* miningNode
 			/*FilterClass*/      nullptr,
 			/*bAllowPartialPath*/true);
 
+	this->currentMovementTarget = miningNode->GetActorLocation();
+
 	// Immediate failure (no path etc.) -> mimic OnRequestFailed behavior
 	if (MoveRes == EPathFollowingRequestResult::Failed)
 	{
@@ -271,6 +273,8 @@ void ATopBaseUnit::Command_MoveTo_Implementation(const FVector& NewPos)
 			/*bcanStrafe*/ true,
 			/*FilterClass*/ nullptr,
 			/*bAllowPartialPath*/ false);
+
+	this->currentMovementTarget = NewPos;
 
 	// Immediate failure handling
 	if (MoveRes == EPathFollowingRequestResult::Failed)
@@ -353,6 +357,7 @@ void ATopBaseUnit::SetUnitState(EUnitMakroState newMakroState, EUnitMikroState n
 	}
 
 	if (newMakroState == EUnitMakroState::UnitMakroState_Moving) {
+		p_fStateMovingTimer = 0.0f;
 		StartMovementHandler();
 	}
 
@@ -392,7 +397,7 @@ void ATopBaseUnit::State_Idle_Chilling(float DeltaSeconds) {
 				{
 					//In case the unit is computer controlled and it cant auto attack
 					//it shall move close enough to the nearest enemy in order to be able to auto attack
-					MoveToNearestEnemy();
+					MoveToNearestEnemy(currentMovementTarget);
 				}
 			}
 		}
@@ -408,18 +413,41 @@ void ATopBaseUnit::IdleCooldownState(float DeltaSeconds) {
 
 void ATopBaseUnit::State_Moving(float DeltaSeconds)
 {
-	// Access GameState and cast to ACarnageGameState
-	if (UWorld* World = GetWorld())
-	{
-		if (ACarnageGameState* GS = World->GetGameState<ACarnageGameState>())
+	p_fStateMovingTimer += DeltaSeconds;
+
+	//To take a little load away from the CPU we call routine task only every 300ms
+	if (p_fStateMovingTimer >= 0.3f) {
+		STATE_LOG(this, Log, "State_Moving::0.3fTimer");
+	
+		// Access GameState and cast to ACarnageGameState
+		if (UWorld* World = GetWorld())
 		{
-			//Get Actor Location
-			FVector location = this->GetActorLocation();
-			FVector2D Pos2D = FVector2D(location.X, location.Y);
+			if (ACarnageGameState* GS = World->GetGameState<ACarnageGameState>())
+			{
+				//Get Actor Location
+				FVector location = this->GetActorLocation();
+				FVector2D Pos2D = FVector2D(location.X, location.Y);
 
-			GS->mSpatialStorageManager->UpdateUnit(this, Pos2D);
+				GS->mSpatialStorageManager->UpdateUnit(this, Pos2D);
 
+			}
 		}
+
+		//TODO: Change this into a real AI
+		if (ACarnageGameState* GS = Cast<ACarnageGameState>(GetWorld()->GetGameState()))
+		{
+			if (UFactionState* FS = GS->GetFactionById(this->FactionId))
+			{
+				if (FS->ePlayerType == EPlayerType::Computer)
+				{
+					//In case the unit is computer controlled and it cant auto attack
+					//it shall move close enough to the nearest enemy in order to be able to auto attack
+					MoveToNearestEnemy(currentMovementTarget,true);
+				}
+			}
+		}
+
+		p_fStateMovingTimer = 0.0f;
 	}
 }
 
@@ -922,13 +950,36 @@ void ATopBaseUnit::DampOverlappingUnits(float DeltaTime)
 	SetActorLocation(NewLoc, /*bSweep*/ true, &SweepHit, ETeleportType::None);
 }
 
-void ATopBaseUnit::MoveToNearestEnemy()
+void ATopBaseUnit::MoveToNearestEnemy(const FVector& EnemyMovePosition, bool bAlreadyTryToReachClosest)
 {
 	AAIController* AI = UAIBlueprintHelperLibrary::GetAIController(this);
 	if (!AI) { return; }
 
 	const FClosestEnemyResult Closest = GetClosestEnemyUnit();
 	if (!Closest.EnemyFound || !IsValid(Closest.ClosestEnemy)) { return; }
+
+	//This is in case we are try to update in case somebody an enemy is close by now
+	if (bAlreadyTryToReachClosest) {
+
+		FVector actorLocation = this->GetActorLocation();
+
+		//STATE_LOG(this, Log, "MoveToNearestEnemy() Distance Checks:");
+		//STATE_LOG(this, Log, "Actor Location x: %f y: %f z: %f", actorLocation.X, actorLocation.Y, actorLocation.Z);
+		//STATE_LOG(this, Log, "EnemyMovePosition x: %f y: %f z: %f", EnemyMovePosition.X, EnemyMovePosition.Y, EnemyMovePosition.Z);
+
+		float CalculatedDistance = (actorLocation - EnemyMovePosition).Length();
+
+		//STATE_LOG(this, Log, "Calculated Distance + 1.0f: %f", CalculatedDistance);
+		//STATE_LOG(this, Log, "ClosestEnemyDistance Distance: %f", Closest.ClosestEnemyDistance);
+
+		if (CalculatedDistance - 1.0f <= Closest.ClosestEnemyDistance){
+			return;
+		}
+
+		//STATE_LOG(this, Log, "MoveToNearestEnemy() Distance Checks Passed");
+	}
+
+
 
 	// Enter moving state
 	SetUnitState(EUnitMakroState::UnitMakroState_Moving,
@@ -951,6 +1002,8 @@ void ATopBaseUnit::MoveToNearestEnemy()
 			/*bCanStrafe*/       false,
 			/*FilterClass*/      nullptr,
 			/*bAllowPartialPath*/true);
+
+	this->currentMovementTarget = Closest.ClosestEnemy->GetActorLocation();
 
 	// Immediate failure (no path etc.) -> mimic OnRequestFailed behavior
 	if (MoveRes == EPathFollowingRequestResult::Failed)
