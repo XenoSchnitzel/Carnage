@@ -117,7 +117,7 @@ void ATopBaseUnit::OnMyDeath_Implementation()
 
 	if (PC)
 	{
-		//TODO: This came by Chatty during C++ conversion and needs to be changed into either
+		//TODO: This came by Chatty during C++ conversion and it is probably a good idea to consider changing it into either
 		//	a) An interface call
 		//  b) Partial transfer of the Player controller into C++ as well
 
