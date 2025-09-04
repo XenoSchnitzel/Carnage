@@ -972,6 +972,7 @@ void ATopBaseUnit::MoveToNearestEnemy(const FVector& EnemyMovePosition, bool bAl
 		//STATE_LOG(this, Log, "Calculated Distance + 1.0f: %f", CalculatedDistance);
 		//STATE_LOG(this, Log, "ClosestEnemyDistance Distance: %f", Closest.ClosestEnemyDistance);
 
+		//We reduce the distance by 1.0f, so we make sure we dont have the same enemy closer
 		if (CalculatedDistance - 1.0f <= Closest.ClosestEnemyDistance){
 			return;
 		}
