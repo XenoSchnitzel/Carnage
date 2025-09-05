@@ -141,7 +141,7 @@ void AResourceAreaVolume::ClearResources()
 AResourceNode* AResourceAreaVolume::GetNextUnoccupiedResourceNode(FVector location)
 {
     AResourceNode* NearestTotallyUnoccupied = nullptr;
-    AResourceNode* NearestPreOccupied = nullptr;
+    AResourceNode* NearestPreUnoccupied = nullptr;
     float MinDistSqrNearestTotallyUnoccupied = TNumericLimits<float>::Max();
     float MinDistSqrNearestPreOccupied = TNumericLimits<float>::Max();
 
@@ -159,7 +159,7 @@ AResourceNode* AResourceAreaVolume::GetNextUnoccupiedResourceNode(FVector locati
                 if (DistSqr < MinDistSqrNearestPreOccupied)
                 {
                     MinDistSqrNearestPreOccupied = DistSqr;
-                    NearestPreOccupied = Node;
+                    NearestPreUnoccupied = Node;
                 }
             }
          
@@ -171,9 +171,9 @@ AResourceNode* AResourceAreaVolume::GetNextUnoccupiedResourceNode(FVector locati
         }
     }
 
-    if (NearestPreOccupied) {
-        NearestPreOccupied->b_isPreOccupied = true;
-        return NearestPreOccupied;
+    if (NearestPreUnoccupied) {
+        NearestPreUnoccupied->b_isPreOccupied = true;
+        return NearestPreUnoccupied;
     }
 
     if (NearestTotallyUnoccupied) {
