@@ -6,6 +6,8 @@
 #include "Engine/Canvas.h"
 #include "GameFramework/PlayerController.h"
 
+
+
 void ACarnageHUD::BeginPlay()
 {
     Super::BeginPlay();
@@ -16,8 +18,25 @@ void ACarnageHUD::BeginPlay()
     ACameraPawn* CamPawn = Cast<ACameraPawn>(PC->GetPawn());
     if (!CamPawn) return;
 
+
+    // Init verzögert aufrufen
+    FTimerHandle InitHandle;
+    GetWorld()->GetTimerManager().SetTimer(
+        InitHandle, this, &ACarnageHUD::InitMinimap, 0.1f, false
+    );
+}
+
+void ACarnageHUD::InitMinimap()
+{
+    APlayerController* PC = GetWorld()->GetFirstPlayerController();
+    if (!PC) return;
+
     int32 SizeX, SizeY;
     PC->GetViewportSize(SizeX, SizeY);
+    if (SizeX == 0 || SizeY == 0) return; // not ready yet
+
+    ACameraPawn* CamPawn = Cast<ACameraPawn>(PC->GetPawn());
+    if (!CamPawn) return;
 
     Minimap = NewObject<UMinimap>(this);
     if (Minimap)
@@ -39,13 +58,26 @@ void ACarnageHUD::DrawMinimap()
 {
     FMinimapFrameData Data = Minimap->GetFrameData();
 
-    const float Size = 200.f;
-    const float X = 50.f;
-    const float Y = Canvas->SizeY - Size - 50.f;
+    FVector2D Size = Data.MiniMapFrameBox.GetSize();
 
-    DrawRect(FLinearColor(0,0,0,0.5f), X, Y, Size, Size);
+    UTexture* MinimapTex = Data.renderTarget;
 
-    if (Data.CameraFrustumPoints.Num() == 4)
+    FCanvasTileItem TileItem(
+        FVector2D(Data.MiniMapFrameTopLeft.X, Data.MiniMapFrameTopLeft.Y),
+        MinimapTex->GetResource(),
+        Size,
+        FLinearColor(1.f, 1.f, 1.f, 1.0f));
+
+    // Rotation einstellen
+    TileItem.Rotation = FRotator(0.f, Data.MinimapRotation, 0.f);
+    TileItem.PivotPoint = FVector2D(0.5f, 0.5f);
+    TileItem.BlendMode = SE_BLEND_Translucent;
+    Canvas->DrawItem(TileItem);
+
+
+
+
+    /*if (Data.CameraFrustumPoints.Num() == 4)
     {
         for (int32 i = 0; i < 4; i++)
         {
@@ -53,7 +85,7 @@ void ACarnageHUD::DrawMinimap()
             FVector2D P2 = Data.CameraFrustumPoints[(i+1)%4];
             DrawLine(X+P1.X, Y+P1.Y, X+P2.X, Y+P2.Y, FLinearColor::Yellow, 1.f);
         }
-    }
+    }*/
 }
 
 void ACarnageHUD::DrawUnits()

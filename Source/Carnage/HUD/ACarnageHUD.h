@@ -16,6 +16,8 @@ public:
 private:
     UPROPERTY() class UMinimap* Minimap;
 
+    void InitMinimap();
+
     void DrawMinimap();
     void DrawUnits();
 };
