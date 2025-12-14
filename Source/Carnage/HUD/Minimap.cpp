@@ -7,10 +7,6 @@
 #include "Engine/CanvasRenderTarget2D.h"
 #include "Engine/Canvas.h"
 
-#define CARNAGE_MINIMAP_X       200.0f
-#define CARNAGE_MINIMAP_Y       1400.0f
-#define CARNAGE_MINIMAP_SIZE    400.0f
-
 UMinimap::UMinimap()
 {
     ConstructorHelpers::FObjectFinder<UTexture> MapTexObj(TEXT("/Game/TopDown/Sprites/TopView_Texture.TopView_Texture"));
@@ -78,9 +74,6 @@ void UMinimap::Initialize(ACameraPawn* InCamera, const FVector2D& InScreenSize, 
     MiniMapTopLeft = SubOrigin;
     MiniMapBottomRight = SubOrigin + FVector2D(SubSize.X, SubSize.Y);
 
-
-
-    
     UpdateFrameData();
 }
 
@@ -105,9 +98,8 @@ void UMinimap::UpdateFrameData()
         CARNAGE_MINIMAP_SIZE / 2.0f,
         CARNAGE_MINIMAP_SIZE / 2.0f);
 
-   // CurrentFrameData.CameraFrustumPoints = ComputeCameraFrustum();
-    //CurrentFrameData.UnitPositions.Empty();
-
+    CurrentFrameData.CameraFrustumPoints = ComputeCameraFrustum();
+    CurrentFrameData.UnitPositions.Empty();
 
     // Aktualisieren
     RenderTarget->UpdateResource(); // löst das Zeichnen ins Target aus
@@ -142,16 +134,21 @@ void UMinimap::DetectWorldBoundsFromLandscape()
 
 FVector2D UMinimap::WorldToMinimap(const FVector& WorldPos) const
 {
-    // Calc a normalized vector considering the maps bounds
+    // 1) Normalisieren in WorldBounds
+    const FVector2D WorldSize = WorldBounds.GetSize();
     FVector2D Norm(
-        (WorldPos.X - WorldBounds.Min.X) / (WorldBounds.Max.X - WorldBounds.Min.X),
-        (WorldPos.Y - WorldBounds.Min.Y) / (WorldBounds.Max.Y - WorldBounds.Min.Y)
+        (WorldPos.X - WorldBounds.Min.X) / WorldSize.X,
+        (WorldPos.Y - WorldBounds.Min.Y) / WorldSize.Y
     );
 
-    // Convert the normalized vector into minimap space
-    return FVector2D(
-        this->MiniMapFrameTopLeft.X + Norm.X * CARNAGE_MINIMAP_SIZE,
-        this->MiniMapFrameTopLeft.Y + Norm.Y * CARNAGE_MINIMAP_SIZE);
+    // 2) In den "World-Subbereich" innerhalb der Minimap-Texture (0..400)
+    const FVector2D SubOrigin = MiniMapTopLeft;
+    const FVector2D SubSize = MiniMapBottomRight - MiniMapTopLeft;
+    FVector2D LocalPos = SubOrigin + FVector2D(Norm.X * SubSize.X,
+        Norm.Y * SubSize.Y);
+
+    // 3) Von Texture-Space in Screen-Space (Frame-Offset)
+    return MiniMapFrameTopLeft + LocalPos;
 }
 
 FVector UMinimap::MinimapToWorld(const FVector2D& MapPos) const
@@ -162,36 +159,6 @@ FVector UMinimap::MinimapToWorld(const FVector2D& MapPos) const
         FMath::Lerp(WorldBounds.Min.Y, WorldBounds.Max.Y, Norm.Y),
         0.f);
 }
-
-//TArray<FVector2D> UMinimap::ComputeCameraFrustum() const
-//{
-//    TArray<FVector2D> Out;
-//    if (!CameraPawn || !CameraPawn->TopDownCamera) return Out;
-//
-//    const FVector CamLoc = CameraPawn->TopDownCamera->GetComponentLocation();
-//    const FRotator CamRot = CameraPawn->TopDownCamera->GetComponentRotation();
-//    const float FOV = CameraPawn->TopDownCamera->FieldOfView;
-//
-//    const float HalfFOV = FMath::DegreesToRadians(FOV * 0.5f);
-//    FVector Forward = CamRot.Vector();
-//    FVector Right = FRotationMatrix(CamRot).GetScaledAxis(EAxis::Y);
-//    FVector Up = FRotationMatrix(CamRot).GetScaledAxis(EAxis::Z);
-//
-//    TArray<FVector> FrustumDirs;
-//    FrustumDirs.Add(Forward + (Right * FMath::Tan(HalfFOV) + Up * FMath::Tan(HalfFOV)));
-//    FrustumDirs.Add(Forward + (-Right * FMath::Tan(HalfFOV) + Up * FMath::Tan(HalfFOV)));
-//    FrustumDirs.Add(Forward + (Right * FMath::Tan(HalfFOV) - Up * FMath::Tan(HalfFOV)));
-//    FrustumDirs.Add(Forward + (-Right * FMath::Tan(HalfFOV) - Up * FMath::Tan(HalfFOV)));
-//
-//    for (FVector Dir : FrustumDirs)
-//    {
-//        Dir.Normalize();
-//        float T = -CamLoc.Z / Dir.Z;
-//        FVector Hit = CamLoc + Dir * T;
-//        Out.Add(WorldToMinimap(Hit));
-//    }
-//    return Out;
-//}
 
 TArray<FVector2D> UMinimap::ComputeCameraFrustum() const
 {
@@ -204,15 +171,15 @@ TArray<FVector2D> UMinimap::ComputeCameraFrustum() const
     APlayerController* PC = World->GetFirstPlayerController();
     if (!PC) return Out;
 
-    int32 SizeX, SizeY;
-    PC->GetViewportSize(SizeX, SizeY);
+    FSceneViewProjectionData ProjectionData;
+    PC->GetLocalPlayer()->GetProjectionData(PC->GetLocalPlayer()->ViewportClient->Viewport, ProjectionData);
 
-    // Vier Viewport-Ecken (in Pixelkoordinaten)
+    const FIntRect ViewRect = ProjectionData.GetConstrainedViewRect();
     TArray<FVector2D> Corners;
-    Corners.Add(FVector2D(0, 0));                // top-left
-    Corners.Add(FVector2D(SizeX, 0));            // top-right
-    Corners.Add(FVector2D(0, SizeY));            // bottom-left
-    Corners.Add(FVector2D(SizeX, SizeY));        // bottom-right
+    Corners.Add(FVector2D(ViewRect.Min.X, ViewRect.Min.Y));               // TL
+    Corners.Add(FVector2D(ViewRect.Max.X - 1, ViewRect.Min.Y));               // TR
+    Corners.Add(FVector2D(ViewRect.Max.X - 1, ViewRect.Max.Y - 1));           // BR
+    Corners.Add(FVector2D(ViewRect.Min.X, ViewRect.Max.Y - 1));           // BL
 
     for (const FVector2D& ScreenPos : Corners)
     {
@@ -221,11 +188,18 @@ TArray<FVector2D> UMinimap::ComputeCameraFrustum() const
         {
             if (!FMath::IsNearlyZero(WorldDir.Z))
             {
-                // Schnittpunkt mit Bodenebene z=0 berechnen
-                float T = -WorldOrigin.Z / WorldDir.Z;
-                if (T > 0.f) // nur vor der Kamera
+                // Ebene: Z = 0  → Ebenennormal = (0,0,1)
+                const FVector PlaneNormal = FVector::UpVector;
+                const float   PlaneD = 0.0f;   // Ebene bei Z=0
+
+                // Geradenparameter: Origin + t * Dir
+                const float denom = FVector::DotProduct(WorldDir, PlaneNormal);
+
+                if (FMath::Abs(denom) > KINDA_SMALL_NUMBER)
                 {
-                    FVector Hit = WorldOrigin + WorldDir * T;
+                    const float t = -(FVector::DotProduct(WorldOrigin, PlaneNormal) - PlaneD) / denom;
+                    FVector Hit = WorldOrigin + t * WorldDir;
+
                     Out.Add(WorldToMinimap(Hit));
                 }
             }
@@ -243,19 +217,6 @@ void UMinimap::DrawMinimapToTexture(UCanvas* Canvas, int32 Width, int32 Height)
         FVector2D(Width, Width), 
         Width,
         FLinearColor(0.0039f, 0.0118f, 0.0235f, 0.8f));
-
-    //Draw actual map area 
-    //Canvas->K2_DrawBox(
-    //    FVector2D(MiniMapTopLeft.X, MiniMapTopLeft.Y),
-    //    FVector2D(MiniMapBottomRight.X, MiniMapBottomRight.Y),
-    //    MiniMapBottomRight.Y - MiniMapTopLeft.Y,
-    //    FLinearColor(0.043f, 0.169f, 0.227f, 0.9f));
-
-    //Canvas->K2_DrawBox(
-    //    FVector2D(100.0f, 0.0f),
-    //    FVector2D(200.0f, 400.0f),
-    //    100.0f,
-    //    FLinearColor(0.043f, 0.169f, 0.227f, 0.9f));
 
     FCanvasTileItem TileItem(
         FVector2D(100.0f, 0.0f),

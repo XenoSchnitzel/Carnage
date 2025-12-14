@@ -54,6 +54,23 @@ void ACarnageHUD::DrawHUD()
     DrawUnits();
 }
 
+static FVector2D RotateAround(
+    const FVector2D& Point,
+    const FVector2D& Pivot,
+    float Degrees)
+{
+    const float Rad = FMath::DegreesToRadians(Degrees);
+    const float S = FMath::Sin(Rad);
+    const float C = FMath::Cos(Rad);
+
+    FVector2D P = Point - Pivot;
+
+    return FVector2D(
+        P.X * C - P.Y * S,
+        P.X * S + P.Y * C
+    ) + Pivot;
+}
+
 void ACarnageHUD::DrawMinimap()
 {
     FMinimapFrameData Data = Minimap->GetFrameData();
@@ -69,23 +86,27 @@ void ACarnageHUD::DrawMinimap()
         FLinearColor(1.f, 1.f, 1.f, 1.0f));
 
     // Rotation einstellen
-    TileItem.Rotation = FRotator(0.f, Data.MinimapRotation, 0.f);
+    TileItem.Rotation = FRotator(0.f, -Data.MinimapRotation, 0.f);
+
     TileItem.PivotPoint = FVector2D(0.5f, 0.5f);
     TileItem.BlendMode = SE_BLEND_Translucent;
     Canvas->DrawItem(TileItem);
 
+    //Camera always points up and x,y are shifted in screen space, so rotate 90 degrees counterclockwise
+    const float RotationDeg = -Data.MinimapRotation -90.0f;
+    const FVector2D Pivot =
+        Data.MiniMapFrameTopLeft + Data.MiniMapFrameBox.GetSize() * 0.5f;
 
-
-
-    /*if (Data.CameraFrustumPoints.Num() == 4)
+    for (int32 i = 0; i < 4; i++)
     {
-        for (int32 i = 0; i < 4; i++)
-        {
-            FVector2D P1 = Data.CameraFrustumPoints[i];
-            FVector2D P2 = Data.CameraFrustumPoints[(i+1)%4];
-            DrawLine(X+P1.X, Y+P1.Y, X+P2.X, Y+P2.Y, FLinearColor::Yellow, 1.f);
-        }
-    }*/
+        FVector2D P1 = Data.CameraFrustumPoints[i];
+        FVector2D P2 = Data.CameraFrustumPoints[(i + 1) % 4];
+
+        P1 = RotateAround(P1, Pivot, RotationDeg);
+        P2 = RotateAround(P2, Pivot, RotationDeg);
+
+        DrawLine(P1.X, P1.Y, P2.X, P2.Y, FLinearColor::Yellow, 1.f);
+    }
 }
 
 void ACarnageHUD::DrawUnits()

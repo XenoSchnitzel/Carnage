@@ -6,6 +6,9 @@
 #include "Engine/Canvas.h"
 #include "Minimap.generated.h"
 
+#define CARNAGE_MINIMAP_X       200.0f
+#define CARNAGE_MINIMAP_Y       1400.0f
+#define CARNAGE_MINIMAP_SIZE    400.0f
 
 
 USTRUCT(BlueprintType)
