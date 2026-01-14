@@ -131,28 +131,6 @@ void ACameraPawn::KeyRotateAroundCenter(float AxisValue)
 	CurrentSpringArmRotationVelocity = FMath::Clamp(AxisValue, -1.0f, 1.0f) * CARNAGE_CAMERA_KEY_ROTATION_SPEED;
 }
 
-//void ACameraPawn::MouseRotateAroundCenter(float AxisValue)
-//{
-//	//////if (bMouseWheelRotationActive) {
-//	//////	// Move at 100 units per second forward or backward
-//	//////	CurrentSpringArmRotationVelocity = AxisValue * CARNAGE_CAMERA_MOUSE_ROTATION_SPEED;
-//	//////}
-//
-//	//if (bMouseWheelRotationActive)
-//	//{
-//	//	// Statt direktem Setzen: sanftes Hinzufügen zur bestehenden Velocity
-//	//	const float TargetVelocity = AxisValue * CARNAGE_CAMERA_MOUSE_ROTATION_SPEED;
-//
-//	//	// Smooth Interpolation zur Zielgeschwindigkeit
-//	//	CurrentSpringArmRotationVelocity = FMath::FInterpTo(CurrentSpringArmRotationVelocity, TargetVelocity, GetWorld()->GetDeltaSeconds(), 30.0f);
-//	//}
-//	//else
-//	//{
-//	//	// Wenn nicht aktiv: sanft zurück zur Ruhe
-//	//	CurrentSpringArmRotationVelocity = FMath::FInterpTo(CurrentSpringArmRotationVelocity, 0.0f, GetWorld()->GetDeltaSeconds(), 30.0f);
-//	}
-//}
-
 // Called every frame
 void ACameraPawn::Tick(float DeltaTime)
 {
