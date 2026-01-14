@@ -45,6 +45,12 @@ void ACarnageHUD::InitMinimap()
     }
 }
 
+FUIHitInfo ACarnageHUD::CheckIfUIisHit(int screen_x, int screen_y)
+{
+    //Currently we only have this case, but other custom UI Elements may have to handled in the future...
+    return this->Minimap->CheckIfMinimapIsHit(screen_x, screen_y);
+}
+
 void ACarnageHUD::DrawHUD()
 {
     Super::DrawHUD();
@@ -54,25 +60,12 @@ void ACarnageHUD::DrawHUD()
     DrawUnits();
 }
 
-static FVector2D RotateAround(
-    const FVector2D& Point,
-    const FVector2D& Pivot,
-    float Degrees)
-{
-    const float Rad = FMath::DegreesToRadians(Degrees);
-    const float S = FMath::Sin(Rad);
-    const float C = FMath::Cos(Rad);
-
-    FVector2D P = Point - Pivot;
-
-    return FVector2D(
-        P.X * C - P.Y * S,
-        P.X * S + P.Y * C
-    ) + Pivot;
-}
-
 void ACarnageHUD::DrawMinimap()
 {
+    //Would have been handled better funtionality-encapsulation-wise aa method of the minimap object.
+    //Since the Canvas and drawing functions are part of the HUD Object, transfering this to the outside
+    //seems to be kind of delicate, so I currently prefer this solution:
+
     FMinimapFrameData Data = Minimap->GetFrameData();
 
     FVector2D Size = Data.MiniMapFrameBox.GetSize();
@@ -87,23 +80,19 @@ void ACarnageHUD::DrawMinimap()
 
     // Rotation einstellen
     TileItem.Rotation = FRotator(0.f, -Data.MinimapRotation, 0.f);
-
     TileItem.PivotPoint = FVector2D(0.5f, 0.5f);
     TileItem.BlendMode = SE_BLEND_Translucent;
     Canvas->DrawItem(TileItem);
-
-    //Camera always points up and x,y are shifted in screen space, so rotate 90 degrees counterclockwise
-    const float RotationDeg = -Data.MinimapRotation -90.0f;
-    const FVector2D Pivot =
-        Data.MiniMapFrameTopLeft + Data.MiniMapFrameBox.GetSize() * 0.5f;
 
     for (int32 i = 0; i < 4; i++)
     {
         FVector2D P1 = Data.CameraFrustumPoints[i];
         FVector2D P2 = Data.CameraFrustumPoints[(i + 1) % 4];
 
-        P1 = RotateAround(P1, Pivot, RotationDeg);
-        P2 = RotateAround(P2, Pivot, RotationDeg);
+        DrawLine(P1.X, P1.Y, P2.X, P2.Y, FLinearColor::Yellow, 1.f);
+
+        P1 = Data.MiniMapFramePoints[i];
+        P2 = Data.MiniMapFramePoints[(i + 1) % 4];
 
         DrawLine(P1.X, P1.Y, P2.X, P2.Y, FLinearColor::Yellow, 1.f);
     }

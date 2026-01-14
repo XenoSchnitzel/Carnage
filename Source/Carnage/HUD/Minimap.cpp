@@ -7,6 +7,65 @@
 #include "Engine/CanvasRenderTarget2D.h"
 #include "Engine/Canvas.h"
 
+//Local helpers
+#define INITAL_ROTATION 90.0f
+
+static FVector2D RotateAround(
+    const FVector2D& Point,
+    const FVector2D& Pivot,
+    float Degrees)
+{
+    const float Rad = FMath::DegreesToRadians(Degrees);
+    const float S = FMath::Sin(Rad);
+    const float C = FMath::Cos(Rad);
+
+    FVector2D P = Point - Pivot;
+
+    return FVector2D(
+        P.X * C - P.Y * S,
+        P.X * S + P.Y * C
+    ) + Pivot;
+}
+
+static bool IsPointInsideConvexQuad(
+    int32 MouseX,
+    int32 MouseY,
+    const TArray<FVector2D>& Quad)
+{
+    check(Quad.Num() == 4);
+
+    const FVector2D P(MouseX, MouseY);
+
+    bool bHasPositive = false;
+    bool bHasNegative = false;
+
+    auto Cross2D = [](const FVector2D& A, const FVector2D& B)
+        {
+            return A.X * B.Y - A.Y * B.X;
+        };
+
+    for (int32 i = 0; i < 4; ++i)
+    {
+        const FVector2D& A = Quad[i];
+        const FVector2D& B = Quad[(i + 1) % 4];
+
+        const float Cross = Cross2D(B - A, P - A);
+
+        if (Cross > 0.f) bHasPositive = true;
+        else if (Cross < 0.f) bHasNegative = true;
+
+        // Sobald beide Seiten vorkommen → draußen
+        if (bHasPositive && bHasNegative)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+//class methods
+
 UMinimap::UMinimap()
 {
     ConstructorHelpers::FObjectFinder<UTexture> MapTexObj(TEXT("/Game/TopDown/Sprites/TopView_Texture.TopView_Texture"));
@@ -43,6 +102,7 @@ void UMinimap::Initialize(ACameraPawn* InCamera, const FVector2D& InScreenSize, 
     }
 
     // Minimap rectangle (always square)
+    // TODO: Make this screen size independent
     const FVector2D MinimapOrigin(0.0f, 0.0f);
     const FVector2D MinimapSize(CARNAGE_MINIMAP_SIZE, CARNAGE_MINIMAP_SIZE);
 
@@ -98,8 +158,36 @@ void UMinimap::UpdateFrameData()
         CARNAGE_MINIMAP_SIZE / 2.0f,
         CARNAGE_MINIMAP_SIZE / 2.0f);
 
-    CurrentFrameData.CameraFrustumPoints = ComputeCameraFrustum();
+    CurrentFrameData.CameraFrustumPoints = ComputeCameraFrustum(CurrentFrameData.MinimapRotation);
     CurrentFrameData.UnitPositions.Empty();
+
+    TArray<FVector2D> tmpMiniMapFramePoints;
+
+    FVector2D Size = this->MiniMapFrameBox.GetSize();
+
+    FVector2D absTopLeft = this->MiniMapFrameTopLeft + this->MiniMapTopLeft;
+    FVector2D absBottomRight = this->MiniMapFrameTopLeft + this->MiniMapBottomRight;
+
+    //Fill in with inital values
+    tmpMiniMapFramePoints.Add(absTopLeft);              //TL
+    tmpMiniMapFramePoints.Add(FVector2D(
+        absBottomRight.X,
+        absTopLeft.Y));                                 //TR
+    tmpMiniMapFramePoints.Add(absBottomRight);          //BR
+    tmpMiniMapFramePoints.Add(FVector2D(
+        absTopLeft.X,
+        absBottomRight.Y));                             //BL
+
+    FVector2D Pivot = FVector2D(
+        this->MiniMapFrameTopLeft.X + Size.X / 2.0f,
+        this->MiniMapFrameTopLeft.Y + Size.Y / 2.0f);
+
+    //Now rotate the individual points
+    for (FVector2d& vec : tmpMiniMapFramePoints) {
+        vec = RotateAround(vec, Pivot, - CameraPawn->GetActorRotation().Yaw - INITAL_ROTATION);
+    }
+
+    CurrentFrameData.MiniMapFramePoints = tmpMiniMapFramePoints;
 
     // Aktualisieren
     RenderTarget->UpdateResource(); // löst das Zeichnen ins Target aus
@@ -151,6 +239,11 @@ FVector2D UMinimap::WorldToMinimap(const FVector& WorldPos) const
     return MiniMapFrameTopLeft + LocalPos;
 }
 
+FVector2D UMinimap::ScreenToMinimap(int32 screen_x, int32 screen_y)
+{
+    return FVector2D(screen_x - CARNAGE_MINIMAP_X, screen_y - CARNAGE_MINIMAP_Y);
+}
+
 FVector UMinimap::MinimapToWorld(const FVector2D& MapPos) const
 {
     FVector2D Norm(MapPos.X / ScreenSize.X, MapPos.Y / ScreenSize.Y);
@@ -160,7 +253,7 @@ FVector UMinimap::MinimapToWorld(const FVector2D& MapPos) const
         0.f);
 }
 
-TArray<FVector2D> UMinimap::ComputeCameraFrustum() const
+TArray<FVector2D> UMinimap::ComputeCameraFrustum(float rotation) const
 {
     TArray<FVector2D> Out;
     if (!CameraPawn || !CameraPawn->TopDownCamera) return Out;
@@ -200,13 +293,65 @@ TArray<FVector2D> UMinimap::ComputeCameraFrustum() const
                     const float t = -(FVector::DotProduct(WorldOrigin, PlaneNormal) - PlaneD) / denom;
                     FVector Hit = WorldOrigin + t * WorldDir;
 
-                    Out.Add(WorldToMinimap(Hit));
+                    //Finally apply rotation, Camera always points up and x,y are shifted in screen space, so rotate 90 degrees counterclockwise
+                    const float RotationDeg = -rotation - INITAL_ROTATION;
+
+                    //Calculate Pivot
+                    const FVector2D Pivot =
+                        this->MiniMapFrameTopLeft + this->MiniMapFrameBox.GetSize() * 0.5f;
+
+                    //World to Minimap just applies real screen coordinates again, finally apply rotation around our pivot
+                    Out.Add(RotateAround(WorldToMinimap(Hit), Pivot, RotationDeg));
                 }
             }
         }
     }
 
     return Out;
+}
+
+FUIHitInfo UMinimap::CheckIfMinimapIsHit(int screen_x, int screen_y) {
+    
+    FUIHitInfo hitInfo;
+
+    TArray<FVector2D> tmpMiniMapFramePoints;
+
+    FVector2D Size = this->MiniMapFrameBox.GetSize();
+
+    FVector2D absTopLeft = this->MiniMapFrameTopLeft + this->MiniMapTopLeft;
+    FVector2D absBottomRight = this->MiniMapFrameTopLeft + this->MiniMapBottomRight;
+
+    //Fill in with inital values
+    tmpMiniMapFramePoints.Add(absTopLeft);              //TL
+    tmpMiniMapFramePoints.Add(FVector2D(
+        absBottomRight.X,
+        absTopLeft.Y));                                 //TR
+    tmpMiniMapFramePoints.Add(absBottomRight);          //BR
+    tmpMiniMapFramePoints.Add(FVector2D(
+        absTopLeft.X,
+        absBottomRight.Y));                             //BL
+
+    FVector2D Pivot = FVector2D(
+        this->MiniMapFrameTopLeft.X + Size.X / 2.0f,
+        this->MiniMapFrameTopLeft.Y + Size.Y / 2.0f);
+
+    //Now rotate the individual points
+    for (FVector2d& vec : tmpMiniMapFramePoints) {
+        vec = RotateAround(vec, Pivot,-CameraPawn->GetActorRotation().Yaw - INITAL_ROTATION);
+    }
+
+    if (IsPointInsideConvexQuad(screen_x, screen_y, tmpMiniMapFramePoints)) {
+        hitInfo.HitType = EUIHitType::Minimap;
+        
+		FVector2D minimapPos = ScreenToMinimap(screen_x, screen_y);
+
+		hitInfo.WorldTarget = MinimapToWorld(minimapPos);
+    }
+    else {
+        hitInfo.HitType = EUIHitType::None;
+    }
+
+    return hitInfo;
 }
 
 void UMinimap::DrawMinimapToTexture(UCanvas* Canvas, int32 Width, int32 Height)
