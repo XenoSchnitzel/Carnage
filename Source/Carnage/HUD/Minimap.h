@@ -56,7 +56,7 @@ struct CARNAGE_API FMinimapFrameData
     UPROPERTY(BlueprintReadOnly) FVector2D MinimapCenter;
     UPROPERTY(BlueprintReadOnly) float MinimapRotation = 0.f;
     UPROPERTY(BlueprintReadOnly) TArray<FVector2D> CameraFrustumPoints;
-    UPROPERTY(BlueprintReadOnly) TArray<FVector2D> MiniMapFramePoints;
+    UPROPERTY(BlueprintReadOnly) TArray<FVector2D> MiniMapBorderPoints;
     UPROPERTY(BlueprintReadOnly) TArray<FVector2D> UnitPositions;
 };
 
@@ -108,6 +108,7 @@ private:
 
     //Local coordinates in the minimap - inital values (unrotated) - can be smaller than the surrounding frame if map is no square
     //e.g MiniMapTopLeft = (0,100) and MiniMapBottomRight = (400,300) if the map fills 400 width but only has 200 height
+    FVector2D MiniMapPivotCenter;
     FVector2D MiniMapTopLeft;
     FVector2D MiniMapBottomRight;
     

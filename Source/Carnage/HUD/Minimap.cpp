@@ -133,6 +133,7 @@ void UMinimap::Initialize(ACameraPawn* InCamera, const FVector2D& InScreenSize, 
     // Store results
     MiniMapTopLeft = SubOrigin;
     MiniMapBottomRight = SubOrigin + FVector2D(SubSize.X, SubSize.Y);
+    MiniMapPivotCenter = (MiniMapFrameBottomRight - this->MiniMapFrameTopLeft) / 2.0f + this->MiniMapFrameTopLeft;
 
     UpdateFrameData();
 }
@@ -178,16 +179,14 @@ void UMinimap::UpdateFrameData()
         absTopLeft.X,
         absBottomRight.Y));                             //BL
 
-    FVector2D Pivot = FVector2D(
-        this->MiniMapFrameTopLeft.X + Size.X / 2.0f,
-        this->MiniMapFrameTopLeft.Y + Size.Y / 2.0f);
+    FVector2D Pivot = this->MiniMapPivotCenter;
 
     //Now rotate the individual points
     for (FVector2d& vec : tmpMiniMapFramePoints) {
         vec = RotateAround(vec, Pivot, - CameraPawn->GetActorRotation().Yaw - INITAL_ROTATION);
     }
 
-    CurrentFrameData.MiniMapFramePoints = tmpMiniMapFramePoints;
+    CurrentFrameData.MiniMapBorderPoints = tmpMiniMapFramePoints;
 
     // Aktualisieren
     RenderTarget->UpdateResource(); // löst das Zeichnen ins Target aus
@@ -241,16 +240,56 @@ FVector2D UMinimap::WorldToMinimap(const FVector& WorldPos) const
 
 FVector2D UMinimap::ScreenToMinimap(int32 screen_x, int32 screen_y)
 {
-    return FVector2D(screen_x - CARNAGE_MINIMAP_X, screen_y - CARNAGE_MINIMAP_Y);
+    //First: Rotate back around PivotPoint
+    FVector2d rVec = RotateAround(FVector2D(screen_x,screen_y), this->MiniMapPivotCenter, CameraPawn->GetActorRotation().Yaw + INITAL_ROTATION);
+    
+
+    UE_LOG(LogTemp, Log,
+        TEXT("ScreenToMinimap | AfterRotate rVec=(%.2f, %.2f)"),
+        rVec.X, rVec.Y
+    );
+
+    //Second: remove Map-Offset, so that we have the actual minimap screen coordinates
+    rVec = FVector2D(
+        rVec.X - this->MiniMapFrameTopLeft.X - this->MiniMapTopLeft.X,
+        rVec.Y - this->MiniMapFrameTopLeft.Y - this->MiniMapTopLeft.Y);
+
+    UE_LOG(LogTemp, Log,
+        TEXT("ScreenToMinimap | AfterOffset rVec=(%.2f, %.2f)"),
+        rVec.X, rVec.Y
+    );
+
+    return rVec;
 }
 
 FVector UMinimap::MinimapToWorld(const FVector2D& MapPos) const
 {
-    FVector2D Norm(MapPos.X / ScreenSize.X, MapPos.Y / ScreenSize.Y);
-    return FVector(
+    FVector2D MinimapSize = MiniMapBottomRight - MiniMapTopLeft;
+
+    UE_LOG(LogTemp, Log,
+        TEXT("MinimapToWorld | MinimapSize=(%.2f, %.2f)"),
+        MinimapSize.X, MinimapSize.Y
+    );
+
+    FVector2D Norm(MapPos.X / MinimapSize.X, MapPos.Y / MinimapSize.Y);
+
+    UE_LOG(LogTemp, Log,
+        TEXT("MinimapToWorld | Norm=(%.4f, %.4f)"),
+        Norm.X, Norm.Y
+    );
+
+
+    FVector rVec = FVector(
         FMath::Lerp(WorldBounds.Min.X, WorldBounds.Max.X, Norm.X),
         FMath::Lerp(WorldBounds.Min.Y, WorldBounds.Max.Y, Norm.Y),
         0.f);
+
+    UE_LOG(LogTemp, Log,
+        TEXT("MinimapToWorld | WorldPos=(%.2f, %.2f, %.2f)"),
+        rVec.X, rVec.Y, rVec.Z
+    );
+
+    return rVec;
 }
 
 TArray<FVector2D> UMinimap::ComputeCameraFrustum(float rotation) const

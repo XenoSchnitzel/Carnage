@@ -91,10 +91,10 @@ void ACarnageHUD::DrawMinimap()
 
         DrawLine(P1.X, P1.Y, P2.X, P2.Y, FLinearColor::Yellow, 1.f);
 
-        P1 = Data.MiniMapFramePoints[i];
-        P2 = Data.MiniMapFramePoints[(i + 1) % 4];
+        //P1 = Data.MiniMapBorderPoints[i];
+        //P2 = Data.MiniMapBorderPoints[(i + 1) % 4];
 
-        DrawLine(P1.X, P1.Y, P2.X, P2.Y, FLinearColor::Yellow, 1.f);
+        //DrawLine(P1.X, P1.Y, P2.X, P2.Y, FLinearColor::Yellow, 1.f);
     }
 }
 
