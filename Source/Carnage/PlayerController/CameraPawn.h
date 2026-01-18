@@ -22,9 +22,7 @@ class CARNAGE_API ACameraPawn : public APawn
 	void MouseWheelUp();
 	void MouseWheelDown();
 		
-	//Axis Handlers
-	void MoveFrontal(float AxisValue);
-	void MoveSideways(float AxisValue);
+
 	void KeyRotateAroundCenter(float AxisValue);
 	void MouseRotateAroundCenter(float Axisvalue);
 	
@@ -44,6 +42,15 @@ class CARNAGE_API ACameraPawn : public APawn
 	float MouseYawVelocity = 0.0f;
 
 public:
+
+	/** Moves the camera forward/backward (W/S, edge scroll Y) */
+	UFUNCTION(BlueprintCallable, Category = "Camera|Movement")
+	void MoveFrontal(float AxisValue);
+
+	/** Moves the camera left/right (A/D, edge scroll X) */
+	UFUNCTION(BlueprintCallable, Category = "Camera|Movement")
+	void MoveSideways(float AxisValue);
+
 	// Sets default values for this pawn's properties
 	ACameraPawn();
 
