@@ -81,7 +81,7 @@ void ACameraPawn::MouseWheelUp() {
 	if (CurrentZoomIndex > 0) {
 		CurrentZoomIndex--;
 		TargetZoomLength = ZoomLevels[CurrentZoomIndex];
-		UE_LOG(LogTemp, Display, TEXT("Zoom in to %f"), TargetZoomLength);
+		//UE_LOG(LogTemp, Display, TEXT("Zoom in to %f"), TargetZoomLength);
 	}
 }
 
@@ -89,7 +89,7 @@ void ACameraPawn::MouseWheelDown() {
 	if (CurrentZoomIndex < ZoomLevels.Num() - 1) {
 		CurrentZoomIndex++;
 		TargetZoomLength = ZoomLevels[CurrentZoomIndex];
-		UE_LOG(LogTemp, Display, TEXT("Zoom out to %f"), TargetZoomLength);
+		//UE_LOG(LogTemp, Display, TEXT("Zoom out to %f"), TargetZoomLength);
 	}
 }
 

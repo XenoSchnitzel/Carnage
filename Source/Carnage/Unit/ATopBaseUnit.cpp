@@ -35,7 +35,7 @@ ATopBaseUnit::ATopBaseUnit()
 
 void ATopBaseUnit::BeginPlay()
 {
-	CVarStateSystemLog->Set(1, ECVF_SetByCode); //Enables Makro/Mikro State Changes logging by default 
+	//CVarStateSystemLog->Set(1, ECVF_SetByCode); //Enables Makro/Mikro State Changes logging by default 
 	
 	/* - OR - type in game console:
 
